@@ -128,7 +128,7 @@ h2 small{font-family:var(--body);font-size:12.5px;color:var(--muted);font-weight
 .compose input{flex:1;min-width:0;padding:11px 14px;border-radius:20px;border:0;background:var(--surface2);color:var(--fg)}
 .abtn{width:42px;height:42px;border-radius:50%;background:var(--acc);color:var(--acc-ink);display:grid;place-items:center;flex:none}
 .stage{flex:1;position:relative;display:grid;place-items:center;min-height:0;padding:0 12px}
-/* Snap-Bild mit Ebenen */
+/* Shot-Bild mit Ebenen */
 .shot{width:min(100%,calc((100dvh - 270px)*0.5625));aspect-ratio:9/16;border-radius:16px;position:relative;overflow:hidden;display:grid;place-items:center;max-width:100%;container-type:inline-size;user-select:none;-webkit-user-select:none;touch-action:none;background:#111}
 .shot.small{width:100%;border-radius:0}
 .shot>.photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
@@ -283,6 +283,38 @@ h2 small{font-family:var(--body);font-size:12.5px;color:var(--muted);font-weight
 .installbar b{display:block;font-size:14px}
 .installbar small{color:var(--muted);font-size:12.5px}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+/* Anrufe */
+#call:empty{display:none}
+.call{position:fixed;inset:0;z-index:60;background:radial-gradient(120% 80% at 50% 20%,#1e293b,#05080d);color:#fff;display:flex;flex-direction:column;align-items:center;max-width:560px;margin:0 auto;overflow:hidden}
+.call video.remote{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.call video.local{position:absolute;right:14px;top:calc(env(safe-area-inset-top,0px) + 14px);width:104px;height:150px;object-fit:cover;border-radius:16px;border:2px solid #fff3;transform:scaleX(-1);z-index:2;background:#111}
+.call .who{position:relative;z-index:1;margin-top:calc(env(safe-area-inset-top,0px) + 16vh);display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.call .who b{font-size:26px;letter-spacing:-.01em}
+.call .who small{color:#ffffffb0;font-size:15px}
+.call.live .who{margin-top:calc(env(safe-area-inset-top,0px) + 22px)}
+.call.live.vid .who{display:none}
+.call .ctl{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 36px);left:0;right:0;display:flex;justify-content:center;gap:22px;z-index:3}
+.call .cb{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:#ffffff26;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff}
+.call .cb.on{background:#fff;color:#0b1220}
+.call .cb.end{background:#e5484d}
+.call .cb.ok{background:#22c55e}
+.call .lbl{display:flex;flex-direction:column;align-items:center;gap:7px;font-size:12px;color:#ffffffc0}
+.call .pulse{animation:callpulse 1.6s ease-in-out infinite}
+@keyframes callpulse{0%,100%{box-shadow:0 0 0 0 #22d3ee55}50%{box-shadow:0 0 0 22px #22d3ee00}}
+.shot .yt{position:absolute;left:0;right:0;width:100%;border:0;background:#000;pointer-events:none;top:0;height:100%}
+.post .shot .yt,.post .shot img.ytp{top:calc(env(safe-area-inset-top,0px) + 86px);height:calc(100% - env(safe-area-inset-top,0px) - 86px - 190px)}
+.post .shot img.ytp{object-fit:contain}
+.shot img.ytp{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.85)}
+.viewfinder video.live{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0!important;background:#000}
+.viewfinder video.live.mirror{transform:scaleX(-1)}
+.viewfinder .fx{position:absolute;inset:0;pointer-events:none;z-index:0!important;overflow:hidden}
+.viewfinder .fx canvas.fxc{position:absolute;inset:0;width:100%;height:100%;display:block}
+.viewfinder .fx .tint{position:absolute;inset:0;mix-blend-mode:soft-light}
+.viewfinder .fx .fs{position:absolute;transform:translate(-50%,-50%);line-height:1;transition:left .06s linear,top .06s linear,font-size .1s}
+.viewfinder.on{padding:0}
+.viewfinder.on>p,.viewfinder.on>.chip{display:none}
+.shoot.rec{background:#e5484d;border-color:#fff;animation:recpulse 1s infinite}
+@keyframes recpulse{50%{transform:scale(.92)}}
 </style>
 
 </head>
@@ -300,14 +332,19 @@ h2 small{font-family:var(--body);font-size:12.5px;color:var(--muted);font-weight
 <div id="overlay"></div>
 <div id="auth"></div>
 <div id="toast" class="toast" hidden></div>
+<div id="call"></div>
 <input type="file" id="file-cam" accept="image/*" capture="environment" hidden>
 <input type="file" id="file-lib" accept="image/*,video/*" hidden>
 <input type="file" id="file-vid" accept="video/*" capture="environment" hidden>
 <input type="file" id="file-face" accept="image/*" capture="user" hidden>
 <input type="file" id="file-facelib" accept="image/*" hidden>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 // ================= Hilfen =================
+{ const rc = Element.prototype.replaceChildren; Element.prototype.replaceChildren = function(...k){ return rc.apply(this, k.filter(x => x != null && x !== false)); }; }
 function h(tag, attrs, ...kids){
   const el = document.createElement(tag);
   for (const [k,v] of Object.entries(attrs||{})){
@@ -351,9 +388,11 @@ const ICONS = {
   timer:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/>',
   spark:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/>',
   mask:'<path d="M3 7c3-1.5 15-1.5 18 0 0 6-2.5 10-6 10-1.6 0-2.2-2-3-2s-1.4 2-3 2c-3.5 0-6-4-6-10z"/><path d="M7.5 10.5h2.5M14 10.5h2.5"/>',
+  trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   music:'<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
   badge:'<path d="M12 2.5l2.3 1.7 2.9-.2.9 2.7 2.4 1.7-.9 2.7.9 2.7-2.4 1.7-.9 2.7-2.9-.2L12 19.5l-2.3-1.7-2.9.2-.9-2.7-2.4-1.7.9-2.7-.9-2.7 2.4-1.7.9-2.7 2.9.2z"/><path d="m8.5 11 2.5 2.5 4.5-4.5" stroke="var(--bg)" stroke-width="2"/>',
   logout:'<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
+  bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/>',
   moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
   lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   flip:'<path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2M20 4v4h-4M4 20v-4h4"/>',
@@ -361,6 +400,12 @@ const ICONS = {
   grid:'<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
   story:'<circle cx="12" cy="12" r="9" stroke-dasharray="4 3"/><path d="M12 8v8M8 12h8"/>',
   video:'<rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 10 6-3.5v11l-6-3.5z"/>',
+  phone:'<path d="M5.2 3.5h3.3l1.9 4.8-2.4 1.5a11.5 11.5 0 0 0 6.2 6.2l1.5-2.4 4.8 1.9v3.3a2 2 0 0 1-2.1 2A17.4 17.4 0 0 1 3.2 5.6a2 2 0 0 1 2-2.1z"/>',
+  hangup:'<path transform="rotate(135 12 12)" d="M5.2 3.5h3.3l1.9 4.8-2.4 1.5a11.5 11.5 0 0 0 6.2 6.2l1.5-2.4 4.8 1.9v3.3a2 2 0 0 1-2.1 2A17.4 17.4 0 0 1 3.2 5.6a2 2 0 0 1 2-2.1z"/>',
+  mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
+  micoff:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M4 4l16 16"/>',
+  camoff:'<rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 10 6-3.5v11l-6-3.5zM3 3l18 18"/>',
+  flip:'<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4"/>',
   mute:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="m17 9.5 4 5M21 9.5l-4 5"/>',
   vol:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 9a4.5 4.5 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>',
   more:'<circle cx="5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="19" cy="12" r="1.7" fill="currentColor"/>',
@@ -484,6 +529,7 @@ function showAuth(mode){
   const f = (id,label,type,ph,auto,extra={}) => h("div",{class:"field"}, h("label",{for:id},label), h("input",{id,type,placeholder:ph,autocomplete:auto,...extra}));
   const card = h("form",{class:"card2",novalidate:true,onsubmit:async e=>{
     e.preventDefault(); err.textContent = "";
+    if (NET) return NET.submit(mode, err, photo);
     const v = id => (document.getElementById(id)?.value || "").trim();
     const email = v("a-email").toLowerCase(), pass = document.getElementById("a-pass").value;
     if (mode === "signup"){
@@ -527,7 +573,7 @@ function showAuth(mode){
   authEl.replaceChildren(h("div",{class:"auth"}, h("div",{class:"inner"},
     h("div",{class:"brand"}, logo(96), h("h1",{},"shade"), h("span",{class:"tag"},"Bleib im Schatten.")),
     card,
-    h("p",{style:"text-align:center;font-size:12px;margin:0;color:#8b919d"},"Vorschau – dein Konto wird nur auf diesem Gerät gespeichert."))));
+    h("p",{style:"text-align:center;font-size:12px;margin:0;color:#8b919d"}, NET ? "Dein Konto ist online gespeichert – du kannst dich auf jedem Handy anmelden." : "Vorschau – dein Konto wird nur auf diesem Gerät gespeichert."))));
 }
 function finishLogin(isNew){
   loggedIn = true; store.set("pling-session", true);
@@ -547,10 +593,44 @@ const people = {
   road:   {name:"Roadtrip BW", username:"roadtrip.bw", color:"#2a9bb0", bio:"Touren durch Baden-Württemberg.", followers:9800},
   night:  {name:"Night Drive", username:"nightdrive", color:"#9b3bd1", bio:"Lofi · Autos · Nacht.", followers:254000, verified:true},
   kino:   {name:"Kino Kurz", username:"kino.kurz", color:"#e0533b", bio:"Die besten Szenen aus freien Kurzfilmen.", followers:61300, verified:true},
+  ytrankrushes:{"name": "RankRushes", "username": "rankrushes", "color": "#c2562b", "bio": "Videos von YouTube", "followers": 167000},
+  ytviralprankdail:{"name": "Viral Prank Daily", "username": "viral.prank.daily", "color": "#4b5bd6", "bio": "Videos von YouTube", "followers": 604000},
+  ytpettsandbabiie:{"name": "Petts And Babiies", "username": "petts.and.babiies", "color": "#1f8f4a", "bio": "Videos von YouTube", "followers": 125000},
+  ytanimaloops:{"name": "AnimalOops", "username": "animaloops", "color": "#2a9bb0", "bio": "Videos von YouTube", "followers": 401000},
+  ytcarenthusiasts:{"name": "Car Enthusiasts Playground", "username": "car.enthusiasts.play", "color": "#9b3bd1", "bio": "Videos von YouTube", "followers": 597000},
+  ytbhagwankigadi:{"name": "Bhagwan Ki Gadi", "username": "bhagwan.ki.gadi", "color": "#e0533b", "bio": "Videos von YouTube", "followers": 528000},
+  ytnigamminivlogg:{"name": "Nigam mini vlogger", "username": "nigam.mini.vlogger", "color": "#5f7d3a", "bio": "Videos von YouTube", "followers": 457000},
+  ytafvshorts:{"name": "AFV Shorts", "username": "afv.shorts", "color": "#b8862b", "bio": "Videos von YouTube", "followers": 496000},
+  ytdizzzy:{"name": "DizZzy", "username": "dizzzy", "color": "#2d6cdf", "bio": "Videos von YouTube", "followers": 390000},
+  ytfunnyhub:{"name": "Funny Hub", "username": "funny.hub", "color": "#d04f8a", "bio": "Videos von YouTube", "followers": 833000},
+  ytexoticrubber:{"name": "Exotic Rubber", "username": "exotic.rubber", "color": "#c2562b", "bio": "Videos von YouTube", "followers": 103000},
+  ytxanami:{"name": "Xanami", "username": "xanami", "color": "#4b5bd6", "bio": "Videos von YouTube", "followers": 371000},
+  ytabusufyan:{"name": "Abu sufyan", "username": "abu.sufyan", "color": "#1f8f4a", "bio": "Videos von YouTube", "followers": 314000},
+  ytanimalsfunyt:{"name": "Animals fun yt", "username": "animals.fun.yt", "color": "#2a9bb0", "bio": "Videos von YouTube", "followers": 140000},
+  ytgalinhofc:{"name": "Galinho FC", "username": "galinho.fc", "color": "#9b3bd1", "bio": "Videos von YouTube", "followers": 188000},
+  ytviralfunnyvide:{"name": "Viral Funny Videos", "username": "viral.funny.videos", "color": "#e0533b", "bio": "Videos von YouTube", "followers": 175000},
+  ytadamshowtv:{"name": "Adam_Show Tv", "username": "adam_show.tv", "color": "#5f7d3a", "bio": "Videos von YouTube", "followers": 451000},
+  ytechonova:{"name": "EchoNova", "username": "echonova", "color": "#b8862b", "bio": "Videos von YouTube", "followers": 802000},
+  ytpsilocybinium:{"name": "Psilocybinium", "username": "psilocybinium", "color": "#2d6cdf", "bio": "Videos von YouTube", "followers": 368000},
+  ytusatadramjogal:{"name": "usatad ram jogal", "username": "usatad.ram.jogal", "color": "#d04f8a", "bio": "Videos von YouTube", "followers": 628000},
+  ytdbeditz:{"name": "DB EditZ", "username": "db.editz", "color": "#c2562b", "bio": "Videos von YouTube", "followers": 90000},
+  ytcritterrank:{"name": "Critter Rank", "username": "critter.rank", "color": "#4b5bd6", "bio": "Videos von YouTube", "followers": 296000},
+  ytthepetcollecti:{"name": "The Pet Collective", "username": "the.pet.collective", "color": "#1f8f4a", "bio": "Videos von YouTube", "followers": 82000},
+  ytworldoff:{"name": "WorldOff", "username": "worldoff", "color": "#2a9bb0", "bio": "Videos von YouTube", "followers": 682000},
+  ytflashshorts15:{"name": "FlashShorts15", "username": "flashshorts15", "color": "#9b3bd1", "bio": "Videos von YouTube", "followers": 311000},
+  ytsoccereducatio:{"name": "Soccer Education", "username": "soccer.education", "color": "#e0533b", "bio": "Videos von YouTube", "followers": 704000},
+  ytanimalsfunnymo:{"name": "Animals Funny Moments", "username": "animals.funny.moment", "color": "#5f7d3a", "bio": "Videos von YouTube", "followers": 492000},
+  ytpulseframe:{"name": "Pulseframe", "username": "pulseframe", "color": "#b8862b", "bio": "Videos von YouTube", "followers": 645000},
+  ytfavball:{"name": "FavBall", "username": "favball", "color": "#2d6cdf", "bio": "Videos von YouTube", "followers": 80000},
+  ytridhimartsmafi:{"name": "Ridhima RT's Mafia", "username": "ridhima.rts.mafia", "color": "#d04f8a", "bio": "Videos von YouTube", "followers": 152000},
+  ytmaclordrank:{"name": "MACLORD RANK", "username": "maclord.rank", "color": "#c2562b", "bio": "Videos von YouTube", "followers": 427000},
+  yttaranking:{"name": "TA ranking", "username": "ta.ranking", "color": "#4b5bd6", "bio": "Videos von YouTube", "followers": 479000},
+  ytadamfunny97:{"name": "Adam Funny 97", "username": "adam.funny.97", "color": "#1f8f4a", "bio": "Videos von YouTube", "followers": 160000},
+  ythardyshortz:{"name": "HardyShortz", "username": "hardyshortz", "color": "#2a9bb0", "bio": "Videos von YouTube", "followers": 583000},
   outdoor:{name:"Outdoor Max", username:"outdoor.max", color:"#5f7d3a", bio:"Wandern, Klettern, Draußen sein.", followers:5100}
 };
-const pname = id => id === ME ? (account?.name || "Du") : people[id].name;
-const puser = id => id === ME ? (account?.username || "du") : people[id].username;
+const pname = id => id === ME ? (account?.name || "Du") : (people[id]?.name || "…");
+const puser = id => id === ME ? (account?.username || "du") : (people[id]?.username || "");
 const initials = n => n.split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase();
 const now = Date.now(), MIN = 60000;
 
@@ -563,36 +643,87 @@ const vid = (src, extra={}) => ({video:src, ...extra});
 const posts = [
   {id:++pid, by:"kino", snap:vid("bunny.mp4"), likes:96400, shares:5100, sound:"Originalton – Big Buck Bunny", credit:"Big Buck Bunny © Blender Foundation · CC BY 3.0",
     comments:[C("night","Haha, der ist so gut gemacht.",25,31),C("street","Kenn ich noch!",50,8)]},
+  {id:++pid, by:"ytrankrushes", snap:{yt:"jMD5LUthooQ"}, text:"Ranking the Most Unexpected Moments 😳😂", likes:144737, shares:2029, sound:"Originalton – RankRushes", comments:[]},
   {id:++pid, by:"urban", snap:vid("traffic.mp4",{cap:"Rush Hour von oben",capY:80}), likes:22800, shares:740, sound:"Stadt – Urban Shots", credit:"Video: Intel IoT DevKit · CC BY 4.0",
     comments:[C("road","Schöne Perspektive.",70,6)]},
+  {id:++pid, by:"ytviralprankdail", snap:{yt:"SkBBmoEkZKA"}, text:"The Most Satisfying Prank Payback EVER! 😈💥", likes:83866, shares:3061, sound:"Originalton – Viral Prank Daily", comments:[]},
+  {id:++pid, by:"ytpettsandbabiie", snap:{yt:"wEupTizGUsI"}, text:"Cat And Dog Funny Moments 😂😂😂", likes:155462, shares:3178, sound:"Originalton – Petts And Babiies", comments:[]},
+  {id:++pid, by:"ytanimaloops", snap:{yt:"rHqnmiSRwq4"}, text:"Funny Animal 🤣 | Try Not To Laugh!", likes:28540, shares:1128, sound:"Originalton – AnimalOops", comments:[]},
+  {id:++pid, by:"ytcarenthusiasts", snap:{yt:"IRNBfHDthq8"}, text:"INSANE Drifting Moments Ever Caught", likes:18624, shares:3474, sound:"Originalton – Car Enthusiasts Playground", comments:[]},
+  {id:++pid, by:"outdoor", snap:vid("flower.mp4",{cap:"Frühling im Garten",capY:80}), likes:18300, shares:960, sound:"Natur – Outdoor Max", credit:"Video: MDN · CC0",
+    comments:[C("road","So nah dran, krass.",35,9)]},
+  {id:++pid, by:"ytbhagwankigadi", snap:{yt:"LxPF_zR55_U"}, text:"The Most SATISFYING Supercar Unboxing 🤯🔥", likes:181362, shares:8811, sound:"Originalton – Bhagwan Ki Gadi", comments:[]},
+  {id:++pid, by:"ytnigamminivlogg", snap:{yt:"4s4XS-Vkrrs"}, text:"Try Not to Laugh 😂 Ultimate Funny Fails Compilation", likes:206745, shares:5246, sound:"Originalton – Nigam mini vlogger", comments:[]},
+  {id:++pid, by:"ytafvshorts", snap:{yt:"7XMyj7WpFlI"}, text:"Pranks that caught everyone off guard", likes:156501, shares:7524, sound:"Originalton – AFV Shorts", comments:[]},
+  {id:++pid, by:"ytdizzzy", snap:{yt:"geofu_-SCpE"}, text:"Wait, what did the cat just say? 🐱", likes:81582, shares:4170, sound:"Originalton – DizZzy", comments:[]},
+  {id:++pid, by:"road", snap:vid("street.mp4",{stamp:{time:"17:20",place:"Parkplatz von oben"}}), likes:7400, shares:210, sound:"Originalton – Roadtrip BW", credit:"Video: Intel IoT DevKit · CC BY 4.0",
+    comments:[]},
+  {id:++pid, by:"ytfunnyhub", snap:{yt:"O9KiCu1MRLQ"}, text:"Try Not To Laugh: Impossible Cat & Dog Moments! 🐾 🐈🤣", likes:50124, shares:4099, sound:"Originalton – Funny Hub", comments:[]},
+  {id:++pid, by:"ytexoticrubber", snap:{yt:"7biTUUEIXNI"}, text:"He turned his driveway into a track", likes:153581, shares:5019, sound:"Originalton – Exotic Rubber", comments:[]},
+  {id:++pid, by:"ytviralprankdail", snap:{yt:"7HYKNRdKeTc"}, text:"He Did NOT Expect That To Happen! 😳🔥", likes:140677, shares:8211, sound:"Originalton – Viral Prank Daily", comments:[]},
+  {id:++pid, by:"ytxanami", snap:{yt:"Gc73LrtI8vw"}, text:"The Most Unexpected Animal Moments Ever Caught on Camera😱", likes:194219, shares:7453, sound:"Originalton – Xanami", comments:[]},
   {id:++pid, by:"night", snap:pic("road",{cap:"B27 um Mitternacht",capY:72}), likes:84100, shares:3200, sound:"Lofi Drive – Night Drive",
     comments:[C("road","Die Strecke fahr ich jeden Tag.",30,12),C("kick","Wie heißt der Song?",22,40),C("urban","Starke Farben.",90,3)]},
+  {id:++pid, by:"ytabusufyan", snap:{yt:"56cn1rZ6x8w"}, text:"Funny animals 😂😂", likes:162634, shares:1299, sound:"Originalton – Abu sufyan", comments:[]},
+  {id:++pid, by:"ytanimalsfunyt", snap:{yt:"e-7Glg4FJQw"}, text:"Funny animals video🤣🤣🤩", likes:137200, shares:6950, sound:"Originalton – Animals fun yt", comments:[]},
+  {id:++pid, by:"ytgalinhofc", snap:{yt:"Qn-uN1YjtFE"}, text:"Crazy Skills in Football 😍", likes:201479, shares:5704, sound:"Originalton – Galinho FC", comments:[]},
+  {id:++pid, by:"ytviralfunnyvide", snap:{yt:"vA98lOaUe4U"}, text:"Weirdest Things People Do For Fun Caught On Camera!", likes:247651, shares:8111, sound:"Originalton – Viral Funny Videos", comments:[]},
   {id:++pid, by:"urban", snap:pic("city",{stamp:{time:"23:58",place:"Stuttgart Mitte"}}), likes:53100, shares:1800, sound:"Originalton – Urban Shots",
     comments:[C("kino","Mega Aufnahme.",40,22),C("outdoor","Wo ist das genau?",60,9)]},
+  {id:++pid, by:"ytadamshowtv", snap:{yt:"nI270TuaoQw"}, text:"Comedy Fails Compilation 😂 | You Won’t Believe These Fails!", likes:13277, shares:1371, sound:"Originalton – Adam_Show Tv", comments:[]},
+  {id:++pid, by:"ytechonova", snap:{yt:"xvKjKDOMUPY"}, text:"Hilariously prank VIDEO funny reaction tiktok meme America", likes:149296, shares:5240, sound:"Originalton – EchoNova", comments:[]},
+  {id:++pid, by:"ytpsilocybinium", snap:{yt:"nbni9OiJJkw"}, text:"Animals Caught Doing the Most Unexpected Things", likes:185267, shares:5837, sound:"Originalton – Psilocybinium", comments:[]},
+  {id:++pid, by:"ytusatadramjogal", snap:{yt:"lKXNZbBmd_0"}, text:"new funny 😂 cats Vs Dogs 😅", likes:133200, shares:7574, sound:"Originalton – usatad ram jogal", comments:[]},
+  {id:++pid, by:"kino", snap:vid("classroom.mp4",{cap:"Montagmorgen, erste Stunde.",capY:20}), likes:33900, shares:1400, sound:"Originalton – Kino Kurz", credit:"Video: Intel IoT DevKit · CC BY 4.0",
+    comments:[C("kick","Genau so sieht's aus.",45,27)]},
+  {id:++pid, by:"ytdbeditz", snap:{yt:"3hiuF2P2dy8"}, text:"Ranking Funniest Animal Moment 🤣🤣", likes:223192, shares:1633, sound:"Originalton – DB EditZ", comments:[]},
+  {id:++pid, by:"ytcritterrank", snap:{yt:"JpZbpBAbOLU"}, text:"UNBELIEVABLE ANIMAL MOMENTS CAUGHT ON CAMERA 😲 🐕 😅", likes:127282, shares:1164, sound:"Originalton – Critter Rank", comments:[]},
+  {id:++pid, by:"ytthepetcollecti", snap:{yt:"byeYjhNr_no"}, text:"FUNNIEST Animal Videos of 2024", likes:194669, shares:5172, sound:"Originalton – The Pet Collective", comments:[]},
+  {id:++pid, by:"ytworldoff", snap:{yt:"1NoSKMOtWGU"}, text:"A minute with the most meme‑worthy animals 🐱🐶", likes:154505, shares:7401, sound:"Originalton – WorldOff", comments:[]},
   {id:++pid, by:"street", snap:pic("food",{cap:"Beste Pasta in der Stadt?",capY:84}), likes:12040, shares:2500, sound:"Originalton – Streetfood Stuttgart",
     comments:[C("urban","Da muss ich mal hin.",120,15)]},
+  {id:++pid, by:"ytflashshorts15", snap:{yt:"T0ITJt_6CPA"}, text:"Ranking The Funniest Animal Moment 🤣 Caught on Camera", likes:190859, shares:6420, sound:"Originalton – FlashShorts15", comments:[]},
+  {id:++pid, by:"ytsoccereducatio", snap:{yt:"93i0L_U18yQ"}, text:"Try Not To Laugh: Football Edition 😂🔥", likes:93965, shares:469, sound:"Originalton – Soccer Education", comments:[]},
+  {id:++pid, by:"ytanimalsfunnymo", snap:{yt:"gG8HNfYTDrA"}, text:"Funny Dog & Cat Moments 🐾😂🤣", likes:96182, shares:2853, sound:"Originalton – Animals Funny Moments", comments:[]},
+  {id:++pid, by:"ytpulseframe", snap:{yt:"Wa9vIskDnLE"}, text:"Funny Animals & People Moments That Will Make You Laugh! 😂", likes:33695, shares:8188, sound:"Originalton – Pulseframe", comments:[]},
   {id:++pid, by:"kick", snap:pic("pitch",{cap:"Was für ein Abend.",capY:22}), likes:28770, shares:900, sound:"Stadion – Live",
     comments:[C("night","Unglaubliche Stimmung!",300,30)]},
+  {id:++pid, by:"ytfavball", snap:{yt:"oGsq3p7KwpA"}, text:"Funny Moments in Football 🤪😂", likes:60201, shares:4809, sound:"Originalton – FavBall", comments:[]},
+  {id:++pid, by:"ytridhimartsmafi", snap:{yt:"PIfbVer230I"}, text:"INSANE CAR DRIFT 😱🔥 | Perfect Drift | #", likes:196557, shares:4156, sound:"Originalton – Ridhima RT's Mafia", comments:[]},
+  {id:++pid, by:"ytmaclordrank", snap:{yt:"yW1dcrSFiVU"}, text:"Wait For The Last Animal Moment🤯🌊", likes:105485, shares:8234, sound:"Originalton – MACLORD RANK", comments:[]},
+  {id:++pid, by:"ytdbeditz", snap:{yt:"ZM7TCNXUj6Y"}, text:"Ranking The Funniest Animal Moment 🤣🤣", likes:24123, shares:2825, sound:"Originalton – DB EditZ", comments:[]},
   {id:++pid, by:"road", snap:pic("mountains",{stamp:{time:"08:15",place:"Albtrauf",style:"boxed"}}), likes:9320, shares:640, sound:"Natur – Roadtrip BW",
     comments:[C("outdoor","Da war ich auch schon wandern.",200,5)]},
+  {id:++pid, by:"yttaranking", snap:{yt:"8YIMQ6e7VUU"}, text:"Ranking the most satisfying drifts￼ part-1 😉🔊😬", likes:108288, shares:4652, sound:"Originalton – TA ranking", comments:[]},
+  {id:++pid, by:"ytadamfunny97", snap:{yt:"amsx6w9FT3s"}, text:"🔥 Top Funny Fails You Need to See Today Part 0006:", likes:217769, shares:7153, sound:"Originalton – Adam Funny 97", comments:[]},
+  {id:++pid, by:"ythardyshortz", snap:{yt:"oNfFpr67mSw"}, text:"Bro just wanted to show them skills 😂", likes:75986, shares:6904, sound:"Originalton – HardyShortz", comments:[]},
   {id:++pid, by:"night", snap:pic("neon",{cap:"Retro Nights",capY:30}), likes:41200, shares:2100, sound:"Synthwave Mix",
     comments:[C("urban","Mehr davon!",80,18)]},
   {id:++pid, by:"outdoor", snap:pic("forest",{stamp:{time:"06:40",place:"Schwarzwald"}}), likes:615, shares:44, sound:"Originalton – Outdoor Max", comments:[]},
 ];
 posts.forEach(p=>{ p.liked=false; p.saved=false; p.at = now - Math.random()*20*60*MIN; });
 const replies = ["Haha, stark.","Nice!","Bin gleich da.","Was machst du heute noch?","Krass.","Ok, passt.","Erzähl mal.","Sieht gut aus."];
-const snapReplies = ["Starker Snap.","Wo bist du da?","Haha, nice.","Coole Lens.","Sieht gut aus."];
+const snapReplies = ["Starker Shot.","Wo bist du da?","Haha, nice.","Coole Lens.","Sieht gut aus."];
 
 const lenses = [
   {id:"none", name:"Normal", sw:"#2a2d33"},
+  {id:"shade", name:"Shade", fx:"shade", face:true, sw:"radial-gradient(circle at 50% 45%,#22d3ee 0 18%,#0b1220 60%)"},
+  {id:"laser", name:"Laser Eyes", fx:"laser", face:true, sw:"radial-gradient(circle,#ff2a2a 0 20%,#300 70%)"},
+  {id:"glitch", name:"Glitch", fx:"glitch", sw:"linear-gradient(90deg,#ff004c,#00e5ff)"},
+  {id:"thermal", name:"Wärmebild", fx:"thermal", sw:"linear-gradient(135deg,#1b0b5a,#d4145a,#fbb03b,#fff)"},
+  {id:"night", name:"Nachtsicht", fx:"night", sw:"radial-gradient(circle,#7dff7a,#031a03)"},
+  {id:"neon", name:"Neon", fx:"neon", sw:"linear-gradient(135deg,#00e5ff,#ff00c8)"},
+  {id:"comic", name:"Comic", fx:"comic", sw:"linear-gradient(135deg,#ffd400,#ff3b3b)"},
+  {id:"xray", name:"Röntgen", fx:"xray", sw:"linear-gradient(135deg,#0a1a3a,#bfe3ff)"},
+  {id:"duo", name:"Ice", fx:"duo", sw:"linear-gradient(135deg,#000,#22d3ee)"},
+  {id:"pixel", name:"8-Bit", fx:"pixel", sw:"conic-gradient(#22d3ee 0 25%,#0b1220 0 50%,#22d3ee 0 75%,#0b1220 0)"},
+  {id:"mirror", name:"Spiegel", fx:"mirror", sw:"linear-gradient(90deg,#334155 50%,#94a3b8 50%)"},
+  {id:"vhs2", name:"Tape", fx:"vhs", sw:"linear-gradient(135deg,#5d4157,#a8caba)"},
   {id:"noir", name:"Noir", sw:"linear-gradient(135deg,#000,#888)", filter:"grayscale(1) contrast(1.45)", grain:true},
   {id:"gold", name:"Golden Hour", sw:"linear-gradient(135deg,#ffb347,#ff6a1a)", filter:"sepia(.35) saturate(1.5) brightness(1.05)", tint:"linear-gradient(180deg,#ffb34777,#ff6a1a33)"},
   {id:"cyber", name:"Cyber", sw:"linear-gradient(135deg,#00e5ff,#ff00c8)", filter:"saturate(1.5) contrast(1.1)", tint:"linear-gradient(135deg,#00e5ff88,#ff00c888)"},
   {id:"frost", name:"Frost", sw:"linear-gradient(135deg,#dff3ff,#6aa9ff)", filter:"hue-rotate(-15deg) saturate(.8) brightness(1.1)", tint:"linear-gradient(180deg,#bfe6ff88,#ffffff22)"},
   {id:"vhs", name:"VHS", sw:"linear-gradient(135deg,#5d4157,#a8caba)", filter:"sepia(.5) contrast(1.15) saturate(1.2)", grain:true, frame:true},
-  {id:"shades", name:"Shades", icon:"🕶️", stickers:[{e:"🕶️",x:50,y:42,s:42}], filter:"contrast(1.1)"},
-  {id:"crown", name:"Crown", icon:"👑", stickers:[{e:"👑",x:50,y:18,s:34}], filter:"saturate(1.2)"},
-  {id:"fire", name:"On Fire", icon:"🔥", rain:"🔥", filter:"saturate(1.4) contrast(1.1)", tint:"linear-gradient(0deg,#ff3d0088,#0000)"},
   {id:"matrix", name:"Matrix", sw:"linear-gradient(135deg,#001a00,#00ff66)", filter:"grayscale(1) contrast(1.3)", tint:"linear-gradient(180deg,#00ff6688,#003300aa)", grain:true},
   {id:"film", name:"Kino", sw:"linear-gradient(135deg,#1a2a3a,#e0a060)", filter:"contrast(1.15) saturate(.9)", tint:"linear-gradient(180deg,#0b3a5a66,#e0a06055)", frame:true}
 ];
@@ -600,7 +731,7 @@ let camLens = "none", camMode = "photo";
 
 const trophyList = [
   {id:"start", ic:"user", name:"Willkommen", how:"Konto erstellt"},
-  {id:"snap", ic:"camera", name:"Erster Snap", how:"Einen Snap senden"},
+  {id:"snap", ic:"camera", name:"Erster Shot", how:"Einen Shot senden"},
   {id:"lens", ic:"mask", name:"Lens-Profi", how:"Eine Lens benutzen"},
   {id:"story", ic:"story", name:"Storyteller", how:"Eine Story posten"},
   {id:"spot", ic:"play", name:"Spotlight", how:"Auf Spotlight posten"},
@@ -625,7 +756,7 @@ function avatar(id, size=46, ring=false){
   if (id === ME){
     if (account?.photo) el.style.backgroundImage = `url(${account.photo})`;
     else { el.style.background = "var(--surface2)"; el.style.color = "var(--fg)"; el.textContent = initials(account?.name || "Du"); }
-  } else { const p = people[id]; el.style.background = p.color; el.textContent = initials(p.name); }
+  } else { const p = people[id] || {name:"?",color:"#555"}; if (p.photo) el.style.backgroundImage = `url(${p.photo})`; else { el.style.background = p.color; el.textContent = initials(p.name||"?"); } }
   return el;
 }
 function groupAvatar(size=46){ const el = h("span",{class:"av",style:`width:${size}px;height:${size}px;background:var(--surface2);color:var(--fg)`}); el.append(ic("users",size*.5)); return el; }
@@ -633,7 +764,7 @@ const verified = id => people[id]?.verified ? h("span",{class:"verified",title:"
 const isFriend = id => people[id]?.friend;
 const flame = n => n ? h("span",{class:"flame"}, String(n), ic("flame")) : null;
 
-// ================= Snap-Bild zeichnen =================
+// ================= Shot-Bild zeichnen =================
 function rainSpots(seedChar){
   let s = [...seedChar].reduce((a,c)=>a+c.codePointAt(0),7);
   const rnd = () => (s = (s*9301+49297)%233280)/233280;
@@ -641,6 +772,11 @@ function rainSpots(seedChar){
 }
 function renderShot(snap, opts={}){
   const el = h("div",{class:"shot"+(opts.small?" small":"")});
+  if (snap.yt){
+    el.dataset.yt = snap.yt;
+    el.append(h("img",{class:"ytp",src:`https://i.ytimg.com/vi/${snap.yt}/hqdefault.jpg`,alt:"",loading:"lazy"}));
+    return el;
+  }
   if (snap.video){
     const v = h("video",{class:"photo",src:snap.video+(opts.thumb?"#t=0.5":""),playsinline:true,preload:opts.thumb?"metadata":"auto",style:`filter:${snap.filter||"none"}`});
     v.muted = !opts.sound; v.playsInline = true;
@@ -698,26 +834,42 @@ function status(c){
     const col = last.snap ? "snap" : "chat";
     return {text:(last.snap ? (c.opened?"Geöffnet":"Zugestellt") : last.share ? "Geteilt" : (c.opened?"Gelesen":"Zugestellt"))+" · "+ago(last.at), cls:"", mark:h("span",{style:`color:var(--${col});display:inline-grid`}, ic("send",13))};
   }
-  if (last.snap && !last.viewed) return {text:"Neuer Snap · "+ago(last.at), cls:"new", mark:h("span",{class:"sq"})};
+  if (last.snap && !last.viewed) return {text:"Neuer Shot · "+ago(last.at), cls:"new", mark:h("span",{class:"sq"})};
   if (!c.read) return {text:(c.group?pname(last.by)+": ":"")+(last.text||"Neue Nachricht")+" · "+ago(last.at), cls:"newchat", mark:h("span",{class:"sq"})};
-  return {text:(last.snap?"Snap angesehen":last.text)+" · "+ago(last.at), cls:"", mark:h("span",{class:"sq o",style:`color:var(--${last.snap?"snap":"chat"})`})};
+  return {text:(last.snap?"Shot angesehen":last.text)+" · "+ago(last.at), cls:"", mark:h("span",{class:"sq o",style:`color:var(--${last.snap?"snap":"chat"})`})};
 }
+
+// ================= Anrufe (ohne Server nicht möglich) =================
+let pushUI = () => null, pushRow = () => null, openNtfy = () => toast("Benachrichtigungen gehen, wenn du über shadechat.github.io angemeldet bist.");
+let deleteStory = async (st) => { const i = myStories.indexOf(st); if (i >= 0) myStories.splice(i, 1); };
+let startCall = () => toast("Anrufe gehen, wenn du über shadechat.github.io angemeldet bist.");
 
 // ================= Chats =================
 let search = "";
 function renderChats(){
   const el = document.getElementById("p-chats");
   const list = [...chats].filter(c=>c.msgs.length).sort((a,b)=>b.msgs.at(-1).at - a.msgs.at(-1).at).filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
+  const idle = Object.keys(people).filter(id => people[id].friend && people[id].real !== false && !list.some(c => c.id === id) && !chats.some(c => c.id === id && c.msgs.length)
+    && (pname(id) || "").toLowerCase().includes(search.toLowerCase()));
   el.replaceChildren(
     header("Chats", iconBtn("edit","Neuer Chat",openNewChat)),
     isInstalled() ? null : h("button",{class:"installbar",onclick:openInstall}, logo(40), h("span",{style:"flex:1;text-align:left"}, h("b",{},"shade als App holen"), h("small",{},"Auf den Home-Bildschirm legen")), ic("home")),
+    pushUI(),
+    NET && !store.get("shade-ntfy-done") ? h("div",{class:"installbar",style:"cursor:pointer",onclick:e=>{ if (!e.target.closest(".x")) openNtfy(); }},
+      h("span",{style:"width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--acc);color:var(--acc-ink)"}, ic("bell",20)),
+      h("span",{style:"flex:1;text-align:left"}, h("b",{},"Benachrichtigungen einrichten"), h("small",{},"Damit Nachrichten & Anrufe ankommen, wenn shade zu ist")),
+      h("button",{class:"x","aria-label":"Später",style:"padding:6px;color:var(--muted)",onclick:()=>{ store.set("shade-ntfy-done", true); renderChats(); }}, ic("close",16))) : null,
     h("div",{class:"searchwrap"}, ic("search"), h("input",{class:"search",id:"chat-search",placeholder:"Chats durchsuchen",value:search,oninput:e=>{search=e.target.value; renderChats(); const i=document.getElementById("chat-search"); i.focus(); i.setSelectionRange(search.length,search.length);}})),
     ...list.map(c => { const s = status(c);
       return h("button",{class:"row",onclick:()=>openChat(c.id)},
         c.group ? groupAvatar() : avatar(c.members[0]),
         h("span",{class:"t"}, h("b",{},c.title), h("small",{class:s.cls}, s.mark, h("span",{},s.text))),
         flame(c.streak)); }),
-    list.length ? null : h("div",{class:"empty",style:"margin-top:24px"}, h("b",{style:"display:block;color:var(--fg);margin-bottom:6px"},"Noch keine Chats"), "Füge Freunde hinzu, dann siehst du hier eure Chats.", h("br"), h("button",{class:"send",style:"margin-top:14px",onclick:openAddFriend}, ic("userplus"),"Freunde hinzufügen")));
+    ...idle.map(id => h("button",{class:"row",onclick:()=>{ chatWith(id); openChat(id); }},
+        avatar(id),
+        h("span",{class:"t"}, h("b",{},pname(id)), h("small",{}, h("span",{},"Neuer Freund · Tippe zum Schreiben"))),
+        ic("chat",18))),
+    list.length || idle.length ? null : h("div",{class:"empty",style:"margin-top:24px"}, h("b",{style:"display:block;color:var(--fg);margin-bottom:6px"},"Noch keine Chats"), "Füge Freunde hinzu, dann siehst du hier eure Chats.", h("br"), h("button",{class:"send",style:"margin-top:14px",onclick:openAddFriend}, ic("userplus"),"Freunde hinzufügen")));
   const unread = chats.filter(c => status(c).cls).length;
   const badge = document.getElementById("badge"); if (badge){ badge.textContent = unread; badge.hidden = !unread; }
 }
@@ -736,8 +888,8 @@ function openChat(id){
       const out = [], mine = m.by === ME;
       if (c.group && !mine && c.msgs[i-1]?.by !== m.by) out.push(h("div",{class:"who",style:`color:${people[m.by].color}`},pname(m.by)));
       if (m.snap){
-        if (mine) out.push(h("div",{class:"snaptile me"}, ic("send",16), m.opened ? "Geöffnet" : "Snap zugestellt"));
-        else if (!m.viewed) out.push(h("button",{class:"snaptile wait",onclick:()=>viewSnap(c,m)}, h("span",{class:"sq",style:"background:#fff"}),"Snap ansehen"));
+        if (mine) out.push(h("div",{class:"snaptile me"}, ic("send",16), m.opened ? "Geöffnet" : "Shot zugestellt"));
+        else if (!m.viewed) out.push(h("button",{class:"snaptile wait",onclick:()=>viewSnap(c,m)}, h("span",{class:"sq",style:"background:#fff"}),"Shot ansehen"));
         else out.push(h("div",{class:"snaptile"}, h("span",{class:"sq o"}),"Angesehen"));
       } else if (m.share){
         const p = posts.find(x=>x.id===m.share);
@@ -757,10 +909,12 @@ function openChat(id){
       h("button",{style:"display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-align:left",onclick:()=>{ if(!c.group) openUserProfile(c.members[0]); }},
         c.group ? groupAvatar(38) : avatar(c.members[0],38),
         h("span",{style:"min-width:0"}, h("b",{style:"display:block"},c.title), h("small",{style:"color:var(--muted)"}, c.group ? (c.members.length+1)+" Mitglieder" : "@"+puser(c.members[0])))),
-      flame(c.streak)),
+      flame(c.streak),
+      c.group ? null : iconBtn("phone","Anrufen",()=>startCall(c.members[0],false)),
+      c.group ? null : iconBtn("video","Videoanruf",()=>startCall(c.members[0],true))),
     msgs,
     h("div",{class:"compose"},
-      h("button",{class:"round",style:"width:42px;height:42px","aria-label":"Foto als Snap",onclick:()=>takePhoto(false,{chat:c.id})}, ic("camera")),
+      h("button",{class:"round",style:"width:42px;height:42px","aria-label":"Foto als Shot",onclick:()=>takePhoto(false,{chat:c.id})}, ic("camera")),
       input,
       h("button",{class:"abtn","aria-label":"Senden",onclick:send}, ic("up",20)))));
   c.redraw = draw;
@@ -785,7 +939,7 @@ function viewSnap(c, m){
     overlay.append(h("div",{class:"ov dark",onclick:done},
       h("div",{style:"display:flex;justify-content:space-between;align-items:center;padding:12px 16px"}, h("span",{style:"display:flex;gap:10px;align-items:center"}, avatar(m.by,32), h("b",{},pname(m.by)), h("small",{style:"opacity:.7"},ago(m.at))), ic("video",20)),
       h("div",{class:"stage"}, shot),
-      h("p",{class:"note",style:"color:#fff9"},"Tippen zum Schließen · Der Snap wird danach gelöscht")));
+      h("p",{class:"note",style:"color:#fff9"},"Tippen zum Schließen · Der Shot wird danach gelöscht")));
     return;
   }
   let left = m.snap.sec || 5;
@@ -794,7 +948,7 @@ function viewSnap(c, m){
   overlay.append(h("div",{class:"ov dark",onclick:done},
     h("div",{style:"display:flex;justify-content:space-between;align-items:center;padding:12px 16px"}, h("span",{style:"display:flex;gap:10px;align-items:center"}, avatar(m.by,32), h("b",{},pname(m.by)), h("small",{style:"opacity:.7"},ago(m.at))), h("span",{style:"display:flex;gap:6px;align-items:center"}, ic("timer",18), counter)),
     h("div",{class:"stage"}, renderShot(m.snap)),
-    h("p",{class:"note",style:"color:#fff9"},"Tippen zum Schließen · Der Snap wird danach gelöscht")));
+    h("p",{class:"note",style:"color:#fff9"},"Tippen zum Schließen · Der Shot wird danach gelöscht")));
   timers.push(setInterval(()=>{ left--; counter.textContent=left; if(left<=0) done(); },1000));
 }
 function openNewChat(){
@@ -818,7 +972,7 @@ function renderStories(){
     h("div",{class:"mine"},
       h("button",{"aria-label":"Meine Story ansehen",onclick:()=> myStories.length ? openStoryViewer([{by:ME,list:myStories}],0) : takePhoto(false,{story:true})}, avatar(ME,52,myStories.length>0)),
       h("div",{style:"flex:1;min-width:0"}, h("b",{style:"display:block;font-size:15.5px"},"Meine Story"),
-        h("small",{style:"color:var(--muted);display:flex;gap:5px;align-items:center"}, myStories.length ? [ic("eye",15), `${views} Aufrufe · ${myStories.length} Snap${myStories.length>1?"s":""}`] : "Teile, was du gerade machst")),
+        h("small",{style:"color:var(--muted);display:flex;gap:5px;align-items:center"}, myStories.length ? [ic("eye",15), `${views} Aufrufe · ${myStories.length} Shot${myStories.length>1?"s":""}`] : "Teile, was du gerade machst")),
       h("button",{class:"abtn","aria-label":"Story aufnehmen",onclick:()=>takePhoto(false,{story:true})}, ic("plus"))),
     h("div",{class:"circles"}, ...groups.map((g,i)=>h("button",{onclick:()=>openStoryViewer(groups,i)}, avatar(g.by,60,g.unseen), pname(g.by)))),
     h("h2",{},"Freunde", h("small",{},"24 Stunden sichtbar")),
@@ -836,13 +990,21 @@ function openStoryViewer(groups, gi){
   const head = h("div",{style:"display:flex;align-items:center;gap:10px;padding:4px 14px"});
   const foot = h("div",{style:"padding:8px 14px 12px",onclick:e=>e.stopPropagation()});
   const show = () => {
-    const g = groups[gi], s = g.list[si]; s.seen = true;
+    const g = groups[gi], s = g.list[si]; s.seen = true; if (NET && s.id && g.by!==ME) NET.seenStory(s.id);
     bars.replaceChildren(...g.list.map((_,i)=>h("i",{},h("b",{style:`width:${i<si?100:i===si?prog:0}%`}))));
     head.replaceChildren(h("button",{style:"display:flex;align-items:center;gap:10px;flex:1;text-align:left;color:#fff",onclick:e=>{e.stopPropagation(); if(g.by!==ME){ stopTimers(); openUserProfile(g.by);} }}, avatar(g.by,34), h("b",{}, g.by===ME?"Meine Story":pname(g.by), h("small",{style:"font-weight:500;opacity:.7"}," "+ago(s.at)))),
       h("button",{class:"round glass","aria-label":"Schließen",onclick:e=>{e.stopPropagation(); closeOverlay();}}, ic("close",19)));
     stage.replaceChildren(renderShot(s.snap,{sound:true,once:true}));
     const sv = stage.querySelector("video"); if (sv) sv.play().catch(()=>{ sv.muted=true; sv.play().catch(()=>{}); });
-    if (g.by===ME) foot.replaceChildren(h("span",{style:"display:flex;gap:6px;align-items:center;font-weight:700"}, ic("eye",18), s.views+" Aufrufe"));
+    if (g.by===ME) foot.replaceChildren(h("div",{style:"display:flex;align-items:center;gap:10px"},
+      h("span",{style:"display:flex;gap:6px;align-items:center;font-weight:700;flex:1"}, ic("eye",18), s.views+" Aufrufe"),
+      h("button",{class:"sbtn",style:"background:#ffffff22;color:#fff",onclick:async e=>{ e.stopPropagation(); paused = true;
+        if (!confirm("Diese Story löschen?")){ paused = false; return; }
+        try { await deleteStory(s); } catch(err){ paused = false; return toast("Löschen ging nicht."); }
+        const i = g.list.indexOf(s); if (i >= 0) g.list.splice(i, 1);
+        toast("Story gelöscht"); paused = false;
+        if (!g.list.length) return closeOverlay();
+        si = Math.min(si, g.list.length - 1); prog = 0; show(); }}, ic("trash",17), "Löschen")));
     else {
       const inp = h("input",{placeholder:"Antworten …",style:"flex:1;min-width:0;padding:11px 14px;border-radius:22px;border:1.5px solid #ffffff55;background:transparent;color:#fff",onfocus:()=>paused=true,onblur:()=>paused=false,
         onkeydown:e=>{ if(e.key==="Enter" && inp.value.trim()){ sendStoryReply(g.by, inp.value.trim()); inp.value=""; inp.blur(); } }});
@@ -875,26 +1037,261 @@ async function takePhoto(fromLibrary, target){
 function lensButton(l, pressed, onclick, size=52){
   return h("button",{class:"lens","aria-pressed":pressed?"true":"false","aria-label":"Lens "+l.name,title:l.name,style:`width:${size}px;height:${size}px;${l.sw?`background:${l.sw}`:""}`,onclick}, l.icon || "");
 }
+// ================= Live-Kamera (eine Erlaubnis für Kamera, Filter und Anrufe) =================
+const LiveCam = (() => {
+  let master = null, pending = null, facing = "user";
+  const live = () => master && master.getTracks().some(t => t.readyState === "live");
+  async function ensure(){
+    if (live()) return master;
+    if (pending) return pending;
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Kamera geht hier nicht.");
+    const v = {facingMode:facing, width:{ideal:1280}, height:{ideal:720}};
+    pending = navigator.mediaDevices.getUserMedia({audio:false, video:v})
+      .then(st => { master = st; store.set("shade-cam-ok", true); return st; })
+      .finally(() => { pending = null; });
+    return pending;
+  }
+  async function flip(){
+    facing = facing === "user" ? "environment" : "user";
+    const ns = await navigator.mediaDevices.getUserMedia({video:{facingMode:facing, width:{ideal:1280}, height:{ideal:720}}});
+    const nv = ns.getVideoTracks()[0];
+    if (live()){ master.getVideoTracks().forEach(t => { t.stop(); master.removeTrack(t); }); master.addTrack(nv); } else master = ns;
+    return master;
+  }
+  // Für Anrufe: Kopien der Spuren, damit nicht nochmal gefragt wird
+  async function av(video){
+    let st = null; try { st = await ensure(); } catch {}
+    let audio = st ? st.getAudioTracks().filter(t => t.readyState === "live") : [];
+    if (!audio.length){ const a = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); audio = a.getAudioTracks(); }
+    const tracks = audio.slice();
+    if (video){
+      const vt = st ? st.getVideoTracks().filter(t => t.readyState === "live") : [];
+      if (!vt.length) throw new Error("Keine Kamera");
+      vt.forEach(t => { const c = t.clone(); c.enabled = true; tracks.push(c); });
+    }
+    return new MediaStream(tracks);
+  }
+  function pause(on){ if (master) master.getVideoTracks().forEach(t => t.enabled = !on); }
+  return {ensure, flip, av, pause, get facing(){ return facing; }, get stream(){ return live() ? master : null; }};
+})();
+const camVideo = (() => { const v = document.createElement("video"); v.className = "live mirror"; v.autoplay = true; v.muted = true; v.playsInline = true; v.setAttribute("playsinline",""); v.setAttribute("muted",""); return v; })();
+const camFx = h("div",{class:"fx"});
+let camUserStarted = false, camOn = false, camRec = null, faceDet = null, faceLoad = null, faceLoop = 0, lastFace = null;
+async function startCam(){
+  camUserStarted = true;
+  try {
+    const st = await LiveCam.ensure();
+    camVideo.srcObject = st; camVideo.classList.toggle("mirror", LiveCam.facing === "user");
+    await camVideo.play().catch(()=>{});
+    camOn = true; LiveCam.pause(false); renderCam(); drawFx(); loadFace();
+  } catch(e){ camOn = false; toast("Kamera nicht erlaubt. Erlaube sie in den iPhone-Einstellungen."); renderCam(); }
+}
+function loadFace(){
+  if (faceDet || faceLoad) return faceLoad;
+  const V = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+  faceLoad = import(V + "/vision_bundle.mjs").then(async m => {
+    const fs = await m.FilesetResolver.forVisionTasks(V + "/wasm");
+    faceDet = await m.FaceDetector.createFromOptions(fs, {baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite"}, runningMode:"VIDEO", minDetectionConfidence:.5});
+  }).catch(e => { console.warn("Gesichtserkennung nicht verfügbar", e); });
+  return faceLoad;
+}
+// Gesicht im Bild finden und in Bildschirm-Koordinaten umrechnen
+function detectFace(){
+  if (!faceDet || !camVideo.videoWidth) return null;
+  let r; try { r = faceDet.detectForVideo(camVideo, performance.now()); } catch { return null; }
+  const d = r && r.detections && r.detections[0]; if (!d) return null;
+  const ew = camVideo.clientWidth, eh = camVideo.clientHeight, vw = camVideo.videoWidth, vh = camVideo.videoHeight;
+  const sc = Math.max(ew / vw, eh / vh), ox = (ew - vw * sc) / 2, oy = (eh - vh * sc) / 2, mir = LiveCam.facing === "user";
+  const P = (x, y) => { let px = x * vw * sc + ox; if (mir) px = ew - px; return {x:px, y:y * vh * sc + oy}; };
+  const k = d.keypoints || [], bb = d.boundingBox;
+  const re = P(k[0].x, k[0].y), le = P(k[1].x, k[1].y), nose = P(k[2].x, k[2].y), mouth = P(k[3].x, k[3].y);
+  const fw = bb.width * sc, top = bb.originY * sc + oy;
+  return {re, le, nose, mouth, fw, top, cx:(re.x + le.x) / 2, ang:Math.atan2(le.y - re.y, le.x - re.x) * (mir ? -1 : 1) * 0, ew, eh};
+}
+function anchor(f, a){
+  const eyes = {x:(f.re.x + f.le.x) / 2, y:(f.re.y + f.le.y) / 2};
+  switch (a.at){
+    case "eyes": return eyes;
+    case "reye": return f.re;
+    case "leye": return f.le;
+    case "nose": return f.nose;
+    case "mouth": return f.mouth;
+    case "top": return {x:eyes.x, y:f.top - f.fw * .25};
+    default: return {x:eyes.x, y:(eyes.y + f.mouth.y) / 2};
+  }
+}
+function drawFx(){
+  cancelAnimationFrame(faceLoop);
+  const l = lenses.find(x => x.id === camLens) || lenses[0];
+  if (l.fx){
+    camFx.replaceChildren(fxCanvas); camVideo.style.filter = "none";
+    const tick = () => {
+      if (!camOn || curTab !== 2 || camLens !== l.id) return;
+      const ew = camVideo.clientWidth || 360, eh = camVideo.clientHeight || 640, W = 360, H = Math.round(W * eh / ew);
+      if (fxCanvas.width !== W || fxCanvas.height !== H){ fxCanvas.width = W; fxCanvas.height = H; }
+      if (camVideo.videoWidth){
+        if (l.face && (fxFrame++ % 2 === 0)) lastFace = detectFace();
+        FX.render(fxCanvas, camVideo, camVideo.videoWidth, camVideo.videoHeight, LiveCam.facing === "user", l.fx, l.face ? scaleFace(lastFace, W / ew) : null, performance.now());
+      }
+      faceLoop = requestAnimationFrame(tick);
+    };
+    faceLoop = requestAnimationFrame(tick);
+    return;
+  }
+  camVideo.style.filter = l.filter || "none";
+  const parts = [];
+  if (l.tint) parts.push(h("div",{class:"tint",style:`background:${l.tint}`}));
+  if (l.rain) rainSpots(l.rain).forEach(sp => parts.push(h("span",{class:"fs",style:`left:${sp.x}%;top:${sp.y}%;font-size:${sp.size*3}px;transform:translate(-50%,-50%) rotate(${sp.r}deg);opacity:.9`}, l.rain)));
+  const faceEls = (l.face || []).map(a => h("span",{class:"fs"}, a.e));
+  const fallback = (l.stickers || []).map(st => h("span",{class:"fs",style:`left:${st.x}%;top:${st.y}%;font-size:${st.s}cqw`}, st.e));
+  camFx.replaceChildren(...parts, ...faceEls, ...fallback);
+  faceEls.forEach(e => e.style.display = "none");
+  if (!faceEls.length || !camOn) return;
+  const tick = () => {
+    if (!camOn || curTab !== 2) return;
+    const f = detectFace(); lastFace = f;
+    faceEls.forEach((e, i) => { const a = l.face[i];
+      if (!f){ e.style.display = "none"; return; }
+      const p = anchor(f, a); e.style.display = ""; e.style.left = p.x + "px"; e.style.top = p.y + "px"; e.style.fontSize = (f.fw * a.k) + "px"; });
+    fallback.forEach(e => e.style.display = f ? "none" : "");
+    faceLoop = requestAnimationFrame(tick);
+  };
+  faceLoop = requestAnimationFrame(tick);
+}
+// Foto aus der Live-Kamera: Bild + Gesichts-Sticker gehen in den Editor und können gepostet werden
+function captureCam(target){
+  const vw = camVideo.videoWidth, vh = camVideo.videoHeight; if (!vw) return toast("Kamera startet noch …");
+  const ew = camVideo.clientWidth, eh = camVideo.clientHeight;
+  const W = 1080, H = Math.round(W * eh / ew), c = document.createElement("canvas"); c.width = W; c.height = H;
+  const sc = Math.max(W / vw, H / vh), dw = vw * sc, dh = vh * sc, x = c.getContext("2d");
+  if (LiveCam.facing === "user"){ x.translate(W, 0); x.scale(-1, 1); }
+  x.drawImage(camVideo, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  const l = lenses.find(q => q.id === camLens) || lenses[0];
+  if (l.fx){
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    FX.render(c, camVideo, vw, vh, LiveCam.facing === "user", l.fx, l.face ? scaleFace(lastFace, W / ew) : null, performance.now());
+    flashFx(); openEditor(target || {}, {img:c.toDataURL("image/jpeg", .9)}, "none"); return;
+  }
+  const img = c.toDataURL("image/jpeg", .9);
+  const f = lastFace, extra = [];
+  if (f && l.face) l.face.forEach(a => { const p = anchor(f, a); extra.push({e:a.e, x:Math.max(0,Math.min(100,p.x / ew * 100)), y:Math.max(0,Math.min(100,p.y / eh * 100)), s:Math.min(80, f.fw * a.k / ew * 100)}); });
+  flashFx();
+  openEditor(target || {}, {img}, camLens);
+  if (extra.length) setTimeout(() => { const ed = window.__editSnap; if (ed){ ed.stickers = ed.stickers.filter(q => !q.fromLens).concat(extra.map(q => ({...q, fromLens:true}))); ed.__redraw && ed.__redraw(); } }, 0);
+}
+function flashFx(){ const fl = h("div",{style:"position:fixed;inset:0;background:#fff;z-index:99;opacity:.85;transition:opacity .35s;pointer-events:none"}); document.body.append(fl); requestAnimationFrame(()=>requestAnimationFrame(()=>fl.style.opacity=0)); setTimeout(()=>fl.remove(), 400); }
+function toggleRec(){
+  if (camRec){ camRec.stop(); return; }
+  const st = LiveCam.stream; if (!st || !window.MediaRecorder) return takePhoto(false,{});
+  const type = ["video/mp4","video/webm;codecs=vp9","video/webm"].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
+  const chunks = []; let rec;
+  const lf = (lenses.find(q => q.id === camLens) || {}).fx;
+  let tracks = st.getVideoTracks().filter(t => t.readyState === "live");
+  if (lf && fxCanvas.captureStream){ try { tracks = [...fxCanvas.captureStream(30).getVideoTracks()]; } catch {} }
+  try { rec = new MediaRecorder(new MediaStream(tracks), type ? {mimeType:type} : undefined); } catch { return takePhoto(false,{}); }
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.onstop = () => { camRec = null; renderCam(); const b = new Blob(chunks, {type:rec.mimeType || "video/mp4"}); openEditor({}, {video:URL.createObjectURL(b)}, lf ? "none" : camLens); };
+  rec.start(); camRec = rec; renderCam();
+  setTimeout(() => { if (camRec === rec) rec.stop(); }, 15000);
+}
+
+// ================= Echte Kamera-Effekte (laufen live im Bild) =================
+const FX = (() => {
+  const lum = (d, i) => d[i] * .299 + d[i+1] * .587 + d[i+2] * .114;
+  const lut = stops => { const t = new Uint8ClampedArray(768); for (let i = 0; i < 256; i++){ const x = i / 255 * (stops.length - 1), a = Math.floor(x), b = Math.min(stops.length - 1, a + 1), k = x - a; for (let c = 0; c < 3; c++) t[i*3+c] = stops[a][c] + (stops[b][c] - stops[a][c]) * k; } return t; };
+  const THERMAL = lut([[0,0,20],[40,0,110],[150,0,160],[230,30,60],[255,140,0],[255,230,60],[255,255,255]]);
+  const ICE = lut([[0,0,0],[2,20,32],[8,90,110],[34,211,238],[220,250,255]]);
+  const XRAY = lut([[255,255,255],[190,225,255],[60,110,170],[10,25,60],[0,0,10]]);
+  const sobel = (d, w, h) => { const L = new Float32Array(w*h), E = new Float32Array(w*h);
+    for (let i = 0, j = 0; j < w*h; i += 4, j++) L[j] = lum(d, i);
+    for (let y = 1; y < h-1; y++) for (let x = 1; x < w-1; x++){ const o = y*w + x;
+      const gx = -L[o-w-1] - 2*L[o-1] - L[o+w-1] + L[o-w+1] + 2*L[o+1] + L[o+w+1];
+      const gy = -L[o-w-1] - 2*L[o-w] - L[o-w+1] + L[o+w-1] + 2*L[o+w] + L[o+w+1];
+      E[o] = Math.min(255, Math.hypot(gx, gy)); }
+    return {L, E}; };
+  const vignette = (d, w, h, cx, cy, R, min) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){ const q = ((x-cx)**2 + (y-cy)**2) / (R*R); const k = q < 1 ? 1 : Math.max(min, 1 - (q-1) * .55); if (k < 1){ const i = (y*w + x) * 4; d[i] *= k; d[i+1] *= k; d[i+2] *= k; } } };
+  const glow = (ctx, x, y, r, col) => { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, "#ffffff"); g.addColorStop(.25, col); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.restore(); };
+  const run = {
+    shade(d, w, h, f){
+      for (let i = 0; i < d.length; i += 4){ const l = lum(d, i); d[i] = l*.72; d[i+1] = l*.9; d[i+2] = Math.min(255, l*1.08 + 6); }
+      const cx = f ? f.cx : w/2, cy = f ? (f.re.y + f.le.y)/2 + f.fw*.2 : h*.42, R = f ? f.fw*.85 : w*.5;
+      vignette(d, w, h, cx, cy, R, .06);
+    },
+    shadeAfter(ctx, w, h, f, t){ if (!f) return; const r = f.fw * (.13 + Math.sin(t/250)*.015); glow(ctx, f.re.x, f.re.y, r, "rgba(34,211,238,.95)"); glow(ctx, f.le.x, f.le.y, r, "rgba(34,211,238,.95)"); },
+    laser(d){ for (let i = 0; i < d.length; i += 4){ d[i] = Math.min(255, d[i]*1.12 + 10); d[i+1] *= .9; d[i+2] *= .88; } },
+    laserAfter(ctx, w, h, f, t){ if (!f) return;
+      const cx = f.cx, lw = f.fw * .07;
+      for (const e of [f.re, f.le]){ const dx = (e.x - cx) * 9, ex = e.x + dx, ey = e.y + h * .9;
+        ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round";
+        ctx.shadowColor = "#ff0000"; ctx.shadowBlur = lw * 3; ctx.strokeStyle = "rgba(255,30,30,.85)"; ctx.lineWidth = lw * (1 + Math.sin(t/60)*.15);
+        ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,240,240,.95)"; ctx.lineWidth = lw * .3; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(ex, ey); ctx.stroke(); ctx.restore();
+        glow(ctx, e.x, e.y, f.fw * .16, "rgba(255,40,40,.9)"); } },
+    glitch(d, w, h, f, t){
+      const s = d.slice(), sh = (6 + Math.round(Math.sin(t/180) * 5)) * 4;
+      for (let i = 0; i < d.length; i += 4){ d[i] = s[i + sh] ?? s[i]; d[i+2] = s[i - sh] ?? s[i+2]; }
+      for (let k = 0; k < 4; k++) if (Math.random() < .35){ const y0 = Math.floor(Math.random()*h), bh = 4 + Math.floor(Math.random()*h*.06), off = Math.floor((Math.random()-.5) * w * .18);
+        for (let y = y0; y < Math.min(h, y0 + bh); y++){ const row = d.slice(y*w*4, (y+1)*w*4); for (let x = 0; x < w; x++){ const sx = ((x - off) % w + w) % w; d.set(row.subarray(sx*4, sx*4+3), (y*w + x)*4); } } }
+      for (let y = 0; y < h; y += 3) for (let x = 0; x < w; x++){ const i = (y*w + x)*4; d[i] *= .82; d[i+1] *= .82; d[i+2] *= .82; }
+    },
+    thermal(d){ for (let i = 0; i < d.length; i += 4){ const l = Math.round(lum(d, i)) * 3; d[i] = THERMAL[l]; d[i+1] = THERMAL[l+1]; d[i+2] = THERMAL[l+2]; } },
+    night(d, w, h){
+      for (let i = 0, p = 0; i < d.length; i += 4, p++){ const y = Math.floor(p / w); let l = lum(d, i) * 1.35 + (Math.random() - .5) * 38; if (y % 3 === 0) l *= .78; d[i] = l*.22; d[i+1] = l; d[i+2] = l*.25; }
+      vignette(d, w, h, w/2, h/2, Math.min(w, h)*.62, .05);
+    },
+    nightAfter(ctx, w, h, f, t){ ctx.save(); ctx.fillStyle = "rgba(160,255,160,.9)"; ctx.font = `700 ${Math.round(w*.045)}px ui-monospace,monospace`; ctx.fillText("● REC   NV-2", w*.06, h*.07); ctx.fillText(new Date().toLocaleTimeString("de-DE"), w*.06, h*.95); ctx.strokeStyle = "rgba(160,255,160,.6)"; ctx.lineWidth = 2; const c = w*.08; ctx.strokeRect(w/2 - c, h/2 - c, c*2, c*2); ctx.restore(); },
+    neon(d, w, h, f, t){ const {E} = sobel(d, w, h);
+      for (let y = 0, j = 0; y < h; y++) for (let x = 0; x < w; x++, j++){ const i = j*4, e = E[j] > 40 ? Math.min(1, E[j] / 160) : 0, k = (x / w + y / h + t / 3000) % 1;
+        d[i] = e * (255 * k); d[i+1] = e * (230 * (1 - k) + 25); d[i+2] = e * 255; } },
+    comic(d, w, h){ const {E} = sobel(d, w, h);
+      for (let j = 0, i = 0; i < d.length; i += 4, j++){ if (E[j] > 90){ d[i] = d[i+1] = d[i+2] = 15; continue; } for (let c = 0; c < 3; c++){ const v = Math.min(255, d[i+c] * 1.25); d[i+c] = Math.round(v / 64) * 64 + 20; } } },
+    xray(d){ for (let i = 0; i < d.length; i += 4){ const l = Math.round(lum(d, i)) * 3; d[i] = XRAY[l]; d[i+1] = XRAY[l+1]; d[i+2] = XRAY[l+2]; } },
+    duo(d){ for (let i = 0; i < d.length; i += 4){ const l = Math.round(Math.min(255, lum(d, i) * 1.1)) * 3; d[i] = ICE[l]; d[i+1] = ICE[l+1]; d[i+2] = ICE[l+2]; } },
+    pixel(d, w, h){ const b = Math.max(6, Math.round(w / 48));
+      for (let y = 0; y < h; y += b) for (let x = 0; x < w; x += b){ const si = (Math.min(h-1, y + (b>>1)) * w + Math.min(w-1, x + (b>>1))) * 4, r = d[si], g = d[si+1], bl = d[si+2];
+        for (let yy = y; yy < Math.min(h, y + b); yy++) for (let xx = x; xx < Math.min(w, x + b); xx++){ const i = (yy*w + xx)*4; d[i] = r; d[i+1] = g; d[i+2] = bl; } } },
+    mirror(d, w, h){ for (let y = 0; y < h; y++) for (let x = (w>>1); x < w; x++){ const a = (y*w + x)*4, b = (y*w + (w - 1 - x))*4; d[a] = d[b]; d[a+1] = d[b+1]; d[a+2] = d[b+2]; } },
+    vhs(d, w, h, f, t){ const s = d.slice(), sh = 4*4; const band = Math.floor((t / 12) % h);
+      for (let i = 0, p = 0; i < d.length; i += 4, p++){ const y = Math.floor(p / w); d[i] = s[i + sh] ?? s[i]; d[i+2] = s[i - sh] ?? s[i+2];
+        const n = (Math.random() - .5) * 26 + (Math.abs(y - band) < 6 ? 40 : 0); d[i] += n; d[i+1] += n; d[i+2] += n; d[i+1] *= .95; } },
+    vhsAfter(ctx, w, h){ ctx.save(); ctx.fillStyle = "#fff"; ctx.shadowColor = "#000"; ctx.shadowBlur = 4; ctx.font = `700 ${Math.round(w*.05)}px ui-monospace,monospace`; ctx.fillText("▶ PLAY", w*.06, h*.08); const dt = new Date(); ctx.fillText(dt.toLocaleDateString("de-DE") + " " + dt.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}), w*.06, h*.95); ctx.restore(); },
+  };
+  // Ein Bild (aus Video oder Foto) mit Effekt in ein Canvas zeichnen
+  function render(cv, src, sw, shh, mirror, lensFx, face, t){
+    const w = cv.width, h = cv.height, ctx = cv.getContext("2d", {willReadFrequently:true});
+    const sc = Math.max(w / sw, h / shh), dw = sw * sc, dh = shh * sc;
+    ctx.save(); if (mirror){ ctx.translate(w, 0); ctx.scale(-1, 1); } ctx.drawImage(src, (w - dw)/2, (h - dh)/2, dw, dh); ctx.restore();
+    if (run[lensFx]){ const im = ctx.getImageData(0, 0, w, h); run[lensFx](im.data, w, h, face, t); ctx.putImageData(im, 0, 0); }
+    if (run[lensFx + "After"]) run[lensFx + "After"](ctx, w, h, face, t);
+  }
+  return {render};
+})();
+const fxCanvas = (() => { const c = document.createElement("canvas"); c.className = "live fxc"; return c; })();
+let fxFrame = 0;
+function scaleFace(f, k){ if (!f) return null; const P = q => ({x:q.x*k, y:q.y*k}); return {re:P(f.re), le:P(f.le), nose:P(f.nose), mouth:P(f.mouth), fw:f.fw*k, top:f.top*k, cx:f.cx*k}; }
+
 function renderCam(){
   const el = document.getElementById("p-cam");
   const lensName = h("div",{class:"lensname"}, lenses.find(l=>l.id===camLens).name);
   const row = h("div",{class:"lensrow"});
-  const vf = h("div",{class:"viewfinder",style:`background-image:url(${IMG.city})`});
-  const preview = () => { const l = lenses.find(x=>x.id===camLens); vf.style.filter = l.filter || "none"; };
+  const vf = h("div",{class:"viewfinder"+(camOn?" on":""),style:camOn?"":`background-image:url(${IMG.city})`});
+  const preview = () => { const l = lenses.find(x=>x.id===camLens); if (camOn){ vf.style.filter = "none"; drawFx(); } else vf.style.filter = l.filter || "none"; };
   const drawRow = () => row.replaceChildren(...lenses.map(l => lensButton(l, l.id===camLens, ()=>{ camLens=l.id; lensName.textContent=l.name; drawRow(); preview(); })));
+  if (camOn){ vf.append(camVideo, camFx); setTimeout(() => camVideo.play().catch(()=>{}), 0); }
   drawRow(); preview();
   vf.append(
     h("div",{class:"camtop"},
       h("span",{style:"display:flex;gap:8px"}, h("button",{"aria-label":"Mein Profil",onclick:()=>goTab(4)}, avatar(ME,38)), iconBtn("search","Suchen",openSearch,"round glass")),
       h("span",{style:"display:flex;gap:8px"}, iconBtn("userplus","Freunde hinzufügen",openAddFriend,"round glass"), iconBtn("more","Mehr – zum Home-Bildschirm",openInstall,"round glass"))),
-    h("div",{class:"camside"}, iconBtn("expand","Vollbild",goFullscreen,"round glass"), iconBtn("flip","Kamera wechseln",()=>toast("Kamera gewechselt"),"round glass"), iconBtn("bolt","Blitz",()=>toast("Blitz an"),"round glass"), iconBtn("timer","Selbstauslöser",()=>toast("Selbstauslöser: 3 Sekunden"),"round glass")),
+    h("div",{class:"camside"}, iconBtn("expand","Vollbild",goFullscreen,"round glass"), iconBtn("flip","Kamera wechseln",async()=>{ if (!camOn) return toast("Schalte zuerst die Kamera ein."); try { await LiveCam.flip(); camVideo.srcObject = LiveCam.stream; camVideo.classList.toggle("mirror", LiveCam.facing === "user"); camVideo.play().catch(()=>{}); } catch { toast("Kamera konnte nicht gewechselt werden."); } },"round glass"), iconBtn("bolt","Blitz",()=>toast("Blitz an"),"round glass"), iconBtn("timer","Selbstauslöser",()=>toast("Selbstauslöser: 3 Sekunden"),"round glass")),
     h("p",{}, camMode==="video" ? "Tippe auf den roten Knopf und nimm ein Video auf." : "Lens wählen, dann auslösen."),
+    camOn ? null : h("button",{class:"chip",style:"background:var(--acc);color:var(--acc-ink);font-weight:800",onclick:startCam}, ic("camera"),"Kamera einschalten"),
     h("button",{class:"chip",onclick:()=>openEditor({}, {img:IMG.city}, camLens)}, ic("image"),"Mit Beispielbild testen"));
   el.replaceChildren(vf, lensName, row,
     h("div",{class:"modes"}, ...[["photo","FOTO"],["video","VIDEO"]].map(([k,l])=>h("button",{"aria-pressed":camMode===k?"true":"false",onclick:()=>{ camMode=k; renderCam(); }},l))),
     h("div",{class:"camrow"},
       iconBtn("image","Foto oder Video aus der Galerie",()=>takePhoto(true,{}),"round glass"),
-      h("button",{class:"shoot"+(camMode==="video"?" vid":""),"aria-label":camMode==="video"?"Video aufnehmen":"Foto aufnehmen",onclick:()=>takePhoto(false,{})}),
+      h("button",{class:"shoot"+(camMode==="video"?" vid":"")+(camRec?" rec":""),"aria-label":camMode==="video"?"Video aufnehmen":"Foto aufnehmen",onclick:()=>{ if (!camOn) return takePhoto(false,{}); if (camMode==="video") toggleRec(); else captureCam({}); }}),
       iconBtn("play","Spotlight",()=>goTab(3),"round glass")));
 }
 const colorFilters = [["Original",""],["Klar","saturate(1.3) contrast(1.08)"],["Warm","sepia(.3) saturate(1.3)"],["Kalt","hue-rotate(-12deg) saturate(1.1) brightness(1.05)"],["S/W","grayscale(1)"],["Matt","contrast(.9) brightness(1.08) saturate(.85)"],["Kontrast","contrast(1.4) saturate(1.1)"]];
@@ -917,12 +1314,13 @@ function openEditor(target, media, lensId){
   const tools = h("div",{class:"tools"});
   const tabs = h("div",{class:"tools"});
   const redraw = () => { stage.replaceChildren(renderShot(snap,{selected:sel,onDrag:i=>{ sel=i; tab="sticker"; redraw(); drawTools(); }})); };
+  window.__editSnap = snap; snap.__redraw = () => redraw();
   const nowTime = () => new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
   const drawTools = () => {
     tabs.replaceChildren(...[["lens","mask","Lenses"],["filter","filter","Filter"],["zeit","pin","Zeit & Ort"],["sticker","smile","Sticker"],["regen","spark","Effekte"],["text","text","Text"],["timer","timer","Timer"]]
       .map(([k,i,l])=>h("button",{class:"chip","aria-pressed":tab===k?"true":"false",onclick:()=>{tab=k; drawTools();}}, ic(i), l)));
     let items = [];
-    if (tab === "lens") items = lenses.map(l=>lensButton(l, snap.lens===l.id, ()=>{ applyLens(snap,l.id); sel=-1; if(l.id!=="none") unlock("lens"); redraw(); drawTools(); }, 46));
+    if (tab === "lens") items = lenses.filter(l=>!l.fx).map(l=>lensButton(l, snap.lens===l.id, ()=>{ applyLens(snap,l.id); sel=-1; if(l.id!=="none") unlock("lens"); redraw(); drawTools(); }, 46));
     if (tab === "filter") items = colorFilters.map(([n,f])=>h("button",{class:"chip","aria-pressed":snap.filter===f?"true":"false",onclick:()=>{snap.filter=f; redraw(); drawTools();}},n));
     if (tab === "zeit") items = [
       h("button",{class:"chip","aria-pressed":snap.stamp&&snap.stamp.style!=="boxed"?"true":"false",onclick:()=>{snap.stamp={time:nowTime(),place,style:"plain"}; redraw(); drawTools();}}, ic("timer"), nowTime()+" · "+place),
@@ -945,9 +1343,9 @@ function openEditor(target, media, lensId){
     if (tab === "text") setTimeout(()=>document.getElementById("cap-input")?.focus(),50);
   };
   const doSend = () => {
-    const final = JSON.parse(JSON.stringify(snap)); final.stickers.forEach(s=>delete s.fromLens);
+    const final = JSON.parse(JSON.stringify(snap)); final.stickers.forEach(s=>delete s.fromLens); delete final.__redraw;
     unlock("snap"); addScore(10);
-    if (target.chat){ const c = chats.find(x=>x.id===target.chat); c.msgs.push({by:ME,snap:final,at:Date.now()}); c.opened=false; reply(c,true); openChat(c.id); toast("Snap gesendet"); }
+    if (target.chat){ const c = chats.find(x=>x.id===target.chat); c.msgs.push({by:ME,snap:final,at:Date.now()}); c.opened=false; reply(c,true); openChat(c.id); toast("Shot gesendet"); }
     else if (target.story){ postStory(final); closeOverlay(); toast("Zu deiner Story hinzugefügt"); }
     else openSendTo(final);
   };
@@ -996,7 +1394,7 @@ function openSendTo(snap){
         else if(id==="spot") postSpotlight(snap, capIn.value.trim());
         else { const c=chats.find(x=>x.id===id); c.msgs.push({by:ME,snap,at:Date.now()}); c.opened=false; reply(c,true); }
       });
-      closeOverlay(); toast(sel.has("spot") ? "Auf Spotlight veröffentlicht" : "Snap gesendet");
+      closeOverlay(); toast(sel.has("spot") ? "Auf Spotlight veröffentlicht" : "Shot gesendet");
     }}, sel.size ? `Senden (${sel.size})` : "Empfänger wählen", ic("send"))); };
   draw();
   overlay.firstChild.append(sheet);
@@ -1004,6 +1402,14 @@ function openSendTo(snap){
 
 // ================= Spotlight =================
 let spotDirty = true, feedSound = false;
+function ytSrc(id){ return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${id}&controls=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`; }
+function ytCmd(f, func){ try { f.contentWindow.postMessage(JSON.stringify({event:"command", func, args:[]}), "*"); } catch {} }
+const ytio = new IntersectionObserver(entries => entries.forEach(en => {
+  const sh = en.target, id = sh.dataset.yt;
+  const f = sh.querySelector("iframe.yt");
+  if (en.isIntersecting && en.intersectionRatio > .6){ if (!f){ const nf = h("iframe",{class:"yt",src:ytSrc(id),allow:"autoplay; encrypted-media; picture-in-picture",title:"Video"}); nf.onload = () => { if (feedSound) setTimeout(() => ytCmd(nf, "unMute"), 600); }; sh.append(nf); } }
+  else if (f) f.remove();
+}), {threshold:[0,.6,1]});
 const vio = new IntersectionObserver(entries => entries.forEach(en => {
   const v = en.target;
   if (en.isIntersecting && en.intersectionRatio > .6){ v.muted = !feedSound; v.play().catch(()=>{ v.muted = true; v.play().catch(()=>{}); }); }
@@ -1025,11 +1431,13 @@ function buildPost(p){
   let lastTap = 0, tapTimer = null;
   const media = miniShot(p.snap,"art",null,{thumb:false, manual:true});
   const vid = media.querySelector("video");
+  const ytShot = media.querySelector("[data-yt]"); if (ytShot) ytio.observe(ytShot);
   const bar = h("i",{}), snd = h("div",{class:"snd"});
   if (vid){ vio.observe(vid); vid.addEventListener("timeupdate",()=>{ if(vid.duration) bar.style.width = (vid.currentTime/vid.duration*100)+"%"; }); }
   const post = h("div",{class:"post",onclick:e=>{
       const t = Date.now();
       if (t - lastTap < 320){ clearTimeout(tapTimer); toggleLike(true); const r = post.getBoundingClientRect(); const b = h("span",{class:"burst",style:`left:${e.clientX-r.left-55}px;top:${e.clientY-r.top-70}px`}, ic("heart")); post.append(b); setTimeout(()=>b.remove(),850); }
+      else if (ytShot) tapTimer = setTimeout(()=>{ feedSound = !feedSound; const f = ytShot.querySelector("iframe.yt"); if (f){ ytCmd(f, feedSound ? "unMute" : "mute"); ytCmd(f, "playVideo"); } snd.replaceChildren(ic(feedSound?"vol":"mute")); snd.classList.add("show"); setTimeout(()=>snd.classList.remove("show"),700); }, 320);
       else if (vid) tapTimer = setTimeout(()=>{ feedSound = !feedSound; document.querySelectorAll(".post video").forEach(v=>v.muted=!feedSound); if (feedSound) vid.play().catch(()=>{}); snd.replaceChildren(ic(feedSound?"vol":"mute")); snd.classList.add("show"); setTimeout(()=>snd.classList.remove("show"),700); }, 320);
       lastTap = t; }},
     media, snd, vid ? h("div",{class:"vbar"}, bar) : null,
@@ -1039,7 +1447,7 @@ function buildPost(p){
         followBtn),
       p.text ? h("span",{},p.text) : null,
       p.credit ? h("span",{style:"font-size:11.5px;opacity:.7"}, p.credit) : null,
-      h("span",{class:"sound"}, ic("music"), p.sound, p.by!==ME && !p.snap.video ? h("span",{class:"demo"},"Beispiel") : null)),
+      h("span",{class:"sound"}, ic("music"), p.sound, p.by!==ME && !p.snap.video && !p.snap.yt ? h("span",{class:"demo"},"Beispiel") : null)),
     h("div",{class:"side"}, likeBtn, cmtBtn, shareBtn, saveBtn));
   upd();
   return post;
@@ -1159,7 +1567,7 @@ function openUserProfile(id){
         h("div",{class:"pactions"},
           friend ? h("button",{class:"main",onclick:()=>{ chatWith(id); openChat(id); }}, ic("chat"),"Chat")
                  : h("button",{class:"main",onclick:()=>{ befriend(id); draw(); }}, ic("userplus"),"Hinzufügen"),
-          friend ? h("button",{onclick:()=>{ chatWith(id); takePhoto(false,{chat:id}); }}, ic("camera"),"Snap")
+          friend ? h("button",{onclick:()=>{ chatWith(id); takePhoto(false,{chat:id}); }}, ic("camera"),"Shot")
                  : h("button",{onclick:()=>{ p.following=!p.following; p.followers+=p.following?1:-1; draw(); }}, p.following?[ic("check"),"Abonniert"]:"Abonnieren")),
         h("h2",{},"Spotlight"),
         theirPosts.length ? postGrid(theirPosts, likeLabel) : h("div",{class:"empty"}, pname(id)+" hat noch nichts gepostet.")));
@@ -1285,11 +1693,13 @@ function openSettings(){
       h("button",{class:"installbar",style:"width:100%",onclick:openInstall}, logo(40), h("span",{style:"flex:1;text-align:left"}, h("b",{},"Zum Home-Bildschirm"), h("small",{},"shade wie eine App nutzen")), ic("home")),
       h("h2",{style:"font-size:14px;color:var(--muted)"},"Aussehen"),
       h("div",{style:"display:flex;gap:8px"}, ...[["dark","Dunkel"],["light","Hell"]].map(([k,l])=>h("button",{class:"sbtn",style:theme===k?"background:var(--acc);color:var(--acc-ink)":"",onclick:()=>setTheme(k)}, ic(k==="dark"?"moon":"spark"), l))),
+      pushRow(),
+      NET ? h("button",{class:"row",style:"width:100%",onclick:()=>openNtfy()}, h("span",{class:"t"}, h("b",{},"Benachrichtigungen (ntfy)"), h("small",{}, h("span",{},"Nachrichten, Anrufe & Stories, auch wenn shade zu ist"))), h("span",{class:"pill"},"Einrichten")) : null,
       h("h2",{style:"font-size:14px;color:var(--muted)"},"Konto & Privatsphäre"),
       h("div",{class:"row"}, h("span",{class:"t"}, h("b",{},"E-Mail"), h("small",{},h("span",{},account.email)))),
-      h("div",{class:"row"}, h("span",{class:"t"}, h("b",{},"Wer kann mir Snaps schicken?"), h("small",{},h("span",{},"Nur Freunde")))),
+      h("div",{class:"row"}, h("span",{class:"t"}, h("b",{},"Wer kann mir Shots schicken?"), h("small",{},h("span",{},"Nur Freunde")))),
       h("div",{class:"row"}, h("span",{class:"t"}, h("b",{},"Wer sieht meine Story?"), h("small",{},h("span",{},"Freunde")))),
-      h("p",{class:"note",style:"text-align:left;margin-top:10px"},"Vorschau: Konto, Fotos und Chats bleiben nur auf diesem Gerät."),
+      h("p",{class:"note",style:"text-align:left;margin-top:10px"}, NET ? "Online: Konto, Freunde, Chats und Stories werden sicher auf dem Server gespeichert." : "Vorschau: Konto, Fotos und Chats bleiben nur auf diesem Gerät."),
       h("button",{class:"sbtn",style:"color:var(--snap);width:100%;justify-content:center",onclick:logout}, ic("logout"),"Abmelden"))));
 }
 
@@ -1326,13 +1736,642 @@ function openInstall(fromFullscreen){
       h("button",{class:"sbtn",style:"width:100%;justify-content:center",onclick:closeOverlay},"Verstanden"))));
 }
 
+// ================= Online (Firebase) =================
+// Sobald hier die Firebase-Daten stehen, laufen Konto, Freunde, Chats, Shots und Stories über den Server.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCOqLHQaBwEP4aLag2SRWjiO2WMTHdA5yU",
+  authDomain: "shade-56574.firebaseapp.com",
+  projectId: "shade-56574",
+  storageBucket: "shade-56574.firebasestorage.app",
+  messagingSenderId: "9369803410",
+  appId: "1:9369803410:web:75954ee9cb8ed791c0a44b"
+};
+let NET = null;
+if (FIREBASE_CONFIG && window.firebase) NET = (() => {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth(), db = firebase.firestore(), FV = firebase.firestore.FieldValue;
+  let UID = null, myFriends = [], lastUsername = "", initialized = false;
+  let unsubs = [], friendUnsubs = {}, msgUnsubs = {}, storyUnsubs = [];
+  const toLocal = u => u === UID ? ME : u;
+  const pairId = (a, b) => [a, b].sort().join("_");
+  const colorFor = s => { let x = 0; for (const c of s) x = (x * 31 + c.charCodeAt(0)) >>> 0; return `hsl(${x % 360} 55% 45%)`; };
+
+  function errText(e){
+    const map = {
+      "auth/email-already-in-use":"Mit dieser E-Mail gibt es schon ein Konto. Melde dich an.",
+      "auth/invalid-email":"Bitte gib eine gültige E-Mail-Adresse ein.",
+      "auth/weak-password":"Das Passwort braucht mindestens 6 Zeichen.",
+      "auth/wrong-password":"E-Mail oder Passwort stimmt nicht.",
+      "auth/user-not-found":"E-Mail oder Passwort stimmt nicht.",
+      "auth/invalid-credential":"E-Mail oder Passwort stimmt nicht.",
+      "auth/invalid-login-credentials":"E-Mail oder Passwort stimmt nicht.",
+      "auth/too-many-requests":"Zu viele Versuche. Warte kurz und probier es nochmal.",
+      "auth/network-request-failed":"Keine Internetverbindung.",
+      "auth/operation-not-allowed":"Anmeldung mit E-Mail ist in Firebase noch nicht eingeschaltet.",
+      "permission-denied":"Keine Berechtigung – sind die Firestore-Regeln eingetragen?",
+      "unavailable":"Server nicht erreichbar. Prüf dein Internet.",
+      "taken":"Dieser Benutzername ist schon vergeben."
+    };
+    return map[e && e.code] || "Etwas ist schiefgelaufen. Prüf dein Internet und versuch es nochmal.";
+  }
+
+  let pending = false;
+  function refresh(){
+    if (pending) return; pending = true;
+    requestAnimationFrame(() => {
+      pending = false;
+      if (!loggedIn) return;
+      const open = overlay.querySelector("[data-chat]");
+      if (!overlay.childElementCount) renderAll();
+      else {
+        renderChats();
+        if (open && !overlay.querySelector(".shot")){ const c = chats.find(x => x.id === open.dataset.chat); if (c && c.redraw) c.redraw(); }
+      }
+    });
+  }
+
+  function setPerson(uid, d){
+    people[uid] = Object.assign(people[uid] || {}, {
+      name: d.name || d.username || "…", username: d.username || "", color: colorFor(uid), photo: d.photo || null,
+      bio: d.bio || "", followers: (d.friends || []).length, friend: myFriends.includes(uid), real: true
+    });
+  }
+  function ensurePerson(uid){
+    if (!people[uid]) people[uid] = {name:"…", username:"", color:colorFor(uid), followers:0, friend:false, real:true};
+    if (!people[uid].loaded){ people[uid].loaded = true;
+      db.collection("users").doc(uid).get().then(s => { if (s.exists){ setPerson(uid, s.data()); const c = chats.find(x => x.id === uid); if (c) c.title = people[uid].name; refresh(); } }).catch(()=>{});
+    }
+  }
+
+  function compress(dataUrl, max = 720, q = .62){
+    return new Promise(res => {
+      const img = new Image();
+      img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement("canvas");
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL("image/jpeg", q)); };
+      img.onerror = () => res(dataUrl); img.src = dataUrl;
+    });
+  }
+  async function packSnap(snap){
+    if (!snap) return null;
+    if (snap.video) throw Object.assign(new Error("video"), {code:"video"});
+    const s = JSON.parse(JSON.stringify(snap));
+    if (s.img && s.img.startsWith("data:")) s.img = await compress(s.img);
+    return s;
+  }
+
+  // ---------- Beobachten ----------
+  function stopAll(){
+    if (call) endCall(true);
+    unsubs.forEach(f => f()); unsubs = [];
+    Object.values(friendUnsubs).forEach(f => f()); friendUnsubs = {};
+    Object.values(msgUnsubs).forEach(f => f()); msgUnsubs = {};
+    storyUnsubs.forEach(f => f()); storyUnsubs = [];
+  }
+  function watchFriends(list){
+    const changed = list.join() !== myFriends.join();
+    myFriends = list.slice();
+    Object.keys(people).forEach(k => { if (people[k].real) people[k].friend = myFriends.includes(k); });
+    for (const f of myFriends) if (!friendUnsubs[f]){
+      ensurePerson(f); people[f].friend = true;
+      friendUnsubs[f] = db.collection("users").doc(f).onSnapshot(s => { if (s.exists){ setPerson(f, s.data()); ntfyOf[f] = s.data().ntfy || null; const c = chats.find(x => x.id === f); if (c) c.title = people[f].name; refresh(); } }, ()=>{});
+    }
+    for (const f of Object.keys(friendUnsubs)) if (!myFriends.includes(f)){ friendUnsubs[f](); delete friendUnsubs[f]; }
+    if (changed || !storyUnsubs.length) watchStories();
+  }
+  function watchStories(){
+    storyUnsubs.forEach(f => f()); storyUnsubs = [];
+    const ids = [UID, ...myFriends], buckets = {};
+    for (let i = 0; i < ids.length; i += 10){
+      const k = i, part = ids.slice(i, i + 10);
+      storyUnsubs.push(db.collection("stories").where("by", "in", part).onSnapshot(q => {
+        buckets[k] = q.docs.map(d => ({id:d.id, ...d.data()}));
+        const all = Object.values(buckets).flat().filter(x => Date.now() - x.at < 86400000);
+        stories.length = 0; myStories.length = 0;
+        for (const x of all){
+          const v = x.viewedBy || [];
+          const o = {id:x.id, by:toLocal(x.by), snap:x.snap, at:x.at, seen:v.includes(UID), views:v.length};
+          if (x.by === UID) myStories.push(o); else { ensurePerson(x.by); stories.push(o); }
+        }
+        myStories.sort((a, b) => a.at - b.at);
+        refresh();
+      }, e => console.warn(e)));
+    }
+  }
+  function watchChats(){
+    unsubs.push(db.collection("chats").where("members", "array-contains", UID).onSnapshot(q => {
+      q.docs.forEach(d => {
+        const data = d.data();
+        const other = (data.members || []).find(m => m !== UID) || UID;
+        ensurePerson(other);
+        let c = chats.find(x => x.id === other);
+        if (!c){ c = {id:other, title:pname(other), members:[other], streak:0, read:true, msgs:[]}; chats.push(c); }
+        const prevAt = c.lastAt || 0;
+        c.docId = d.id; c.streak = data.streak || 0; c.lastAt = data.lastAt || 0; c.title = pname(other);
+        c.read = data.lastBy === UID || (data.readBy || []).includes(UID);
+        c.opened = data.lastBy === UID && (data.readBy || []).includes(other);
+        const sub = (tries) => { msgUnsubs[d.id] = d.ref.collection("messages").orderBy("at").limitToLast(80).onSnapshot(mq => {
+          c.msgs = mq.docs.map(md => { const m = md.data(), v = m.viewedBy || [];
+            return {id:md.id, by:toLocal(m.by), text:m.text || "", snap:m.snap || null, share:m.share || null, at:m.at, viewed:v.includes(UID), opened:v.includes(other)}; });
+          refresh();
+        }, e => { console.warn(e); if (tries < 8 && msgUnsubs[d.id]) setTimeout(() => { if (UID) sub(tries + 1); }, 1500); }); };
+        if (!msgUnsubs[d.id]) sub(0);
+        if (initialized && data.lastBy && data.lastBy !== UID && data.lastAt > prevAt && !overlay.querySelector(`[data-chat="${other}"]`))
+          toast(`${pname(other)}: ${data.lastKind === "snap" ? "Neuer Shot" : "Neue Nachricht"}`);
+      });
+      refresh();
+    }, e => { console.warn(e); toast(errText(e)); }));
+  }
+
+  // ---------- Senden ----------
+  async function upload(c){
+    const m = c.msgs[c.msgs.length - 1];
+    if (!m || m.by !== ME || m._sent) return;
+    m._sent = true;
+    const other = c.id, docId = pairId(UID, other); c.docId = docId;
+    try {
+      const snap = await packSnap(m.snap);
+      const ref = db.collection("chats").doc(docId);
+      const now = Date.now(), day = new Date().toDateString(), yday = new Date(now - 86400000).toDateString();
+      const cur = await ref.get(), d = cur.exists ? cur.data() : {};
+      let streak = d.streak || 0;
+      if (d.streakDay !== day) streak = d.streakDay === yday ? streak + 1 : 1;
+      await ref.set({members:[UID, other].sort(), lastAt:now, lastBy:UID, lastKind:snap ? "snap" : "text",
+        lastText:(m.text || "").slice(0, 80), readBy:[UID], streak, streakDay:day}, {merge:true});
+      await ref.collection("messages").add({by:UID, text:m.text || "", snap:snap || null, share:m.share || null, at:now, viewedBy:[]});
+      notify([other], snap ? "shot" : m.share ? "share" : "msg", m.text || "");
+    } catch(e){
+      const i = c.msgs.indexOf(m); if (i >= 0) c.msgs.splice(i, 1);
+      toast(e.code === "video" ? "Videos können noch nicht an Freunde geschickt werden – nur Fotos." : "Nicht gesendet: " + errText(e));
+      refresh();
+    }
+  }
+  function markRead(c){ if (c && c.docId) db.collection("chats").doc(c.docId).update({readBy:FV.arrayUnion(UID)}).catch(()=>{}); }
+
+  reply = function(c){ upload(c); };
+  chatWith = function(id){
+    let c = chats.find(x => x.id === id);
+    if (!c){ ensurePerson(id); c = {id, title:pname(id), members:[id], streak:0, read:true, msgs:[], docId:pairId(UID, id)}; chats.push(c); }
+    return c;
+  };
+  const _openChat = openChat;
+  openChat = function(id){
+    const c0 = chatWith(id), wasRead = c0.read;
+    _openChat(id);
+    const last = c0.msgs[c0.msgs.length - 1];
+    if (!wasRead && !(last && last.snap && last.by !== ME && !last.viewed)) markRead(c0);
+  };
+  const _viewSnap = viewSnap;
+  viewSnap = function(c, m){
+    _viewSnap(c, m);
+    if (m.id && c.docId){
+      db.collection("chats").doc(c.docId).collection("messages").doc(m.id).update({viewedBy:FV.arrayUnion(UID), snap:{gone:true}}).catch(()=>{});
+      markRead(c);
+    }
+  };
+  postStory = async function(snap){
+    try {
+      const s = await packSnap(snap);
+      await db.collection("stories").add({by:UID, snap:s, at:Date.now(), viewedBy:[]});
+      notify(null, "story");
+      unlock("story"); addScore(20);
+    } catch(e){ toast(e.code === "video" ? "Videos gehen in Stories noch nicht – nur Fotos." : errText(e)); }
+  };
+
+  // ---------- Freunde ----------
+  befriend = async function(id){
+    if (myFriends.includes(id) || id === UID) return;
+    ensurePerson(id); people[id].friend = true;
+    const b = db.batch();
+    b.update(db.collection("users").doc(UID), {friends:FV.arrayUnion(id)});
+    b.update(db.collection("users").doc(id), {friends:FV.arrayUnion(UID)});
+    try { await b.commit(); unlock("friend"); addScore(5); toast(`${pname(id)} ist jetzt dein Freund`); }
+    catch(e){ people[id].friend = false; toast(errText(e)); }
+  };
+  openAddFriend = function(){
+    const input = h("input",{class:"search",id:"friend-input",style:"padding-left:14px",placeholder:"Benutzername",autocapitalize:"none",autocorrect:"off",
+      onkeydown:e=>{ if (e.key === "Enter") go(); }});
+    const msg = h("p",{class:"note",style:"text-align:left"},"Gib den Benutzernamen deines Freundes ein.");
+    async function go(){
+      const name = input.value.trim().replace("@","").toLowerCase(); if (!name) return;
+      msg.textContent = "Suche …";
+      try {
+        const s = await db.collection("usernames").doc(name).get();
+        if (!s.exists) return msg.textContent = "Niemanden mit diesem Benutzernamen gefunden.";
+        const uid = s.data().uid;
+        if (uid === UID) return msg.textContent = "Das bist du selbst.";
+        if (myFriends.includes(uid)) return msg.textContent = "Ihr seid schon befreundet.";
+        const u = await db.collection("users").doc(uid).get(); if (u.exists) setPerson(uid, u.data());
+        await befriend(uid); closeOverlay(); goTab(0);
+      } catch(e){ msg.textContent = errText(e); }
+    }
+    overlay.replaceChildren(h("div",{class:"ov dim",onclick:e=>{ if(e.target===e.currentTarget) closeOverlay(); }},
+      h("div",{class:"sheet"}, h("h2",{},"Freunde hinzufügen", iconBtn("close","Schließen",closeOverlay)), input, msg,
+        h("button",{class:"send",style:"width:100%",onclick:go}, ic("userplus"),"Hinzufügen"),
+        h("div",{class:"empty",style:"margin-top:14px;text-align:left"}, "Dein Benutzername: ", h("b",{style:"color:var(--fg)"},"@"+account.username), h("br"),
+          "Schick ihn deinen Freunden, damit sie dich hinzufügen können.",
+          h("div",{style:"margin-top:10px"}, h("button",{class:"sbtn",onclick:async()=>{ const t = "Füg mich bei shade hinzu: @"+account.username+" – "+location.href.split("#")[0];
+            try { await navigator.clipboard.writeText(t); toast("Kopiert – jetzt deinen Freunden schicken"); } catch { toast(t); } }}, ic("link"),"Einladung kopieren"))))));
+    input.focus();
+  };
+  openSearch = function(){
+    const res = h("div",{}); let t = null;
+    const inp = h("input",{class:"search",id:"people-search",placeholder:"Personen oder Benutzernamen",autocapitalize:"none",autocorrect:"off",oninput:()=>{ clearTimeout(t); t = setTimeout(draw, 300); }});
+    const rowFor = id => h("button",{class:"row",onclick:()=>openUserProfile(id)}, avatar(id,46,stories.some(s=>s.by===id&&!s.seen)),
+      h("span",{class:"t"}, h("b",{}, people[id].name, verified(id)), h("small",{}, h("span",{}, "@"+people[id].username+(people[id].real ? "" : " · "+num(people[id].followers)+" Abonnenten")))),
+      isFriend(id) ? h("span",{class:"pill dim"},"Freund") : null);
+    const match = (id, q) => !q || (people[id].name||"").toLowerCase().includes(q) || (people[id].username||"").includes(q);
+    async function draw(){
+      const q = inp.value.trim().toLowerCase().replace("@","");
+      const friends = myFriends.filter(id => people[id] && match(id, q));
+      const found = [];
+      if (q.length >= 2){
+        try { const r = await db.collection("users").orderBy("username").startAt(q).endAt(q + "").limit(15).get();
+          r.docs.forEach(d => { if (d.id !== UID){ setPerson(d.id, d.data()); if (!myFriends.includes(d.id)) found.push(d.id); } }); } catch(e){ console.warn(e); }
+      }
+      const creators = Object.keys(people).filter(id => !people[id].real && match(id, q));
+      res.replaceChildren(
+        friends.length ? h("h2",{},"Freunde") : null, ...friends.map(rowFor),
+        found.length ? h("h2",{},"Personen") : null, ...found.map(rowFor),
+        q.length === 1 ? h("p",{class:"note",style:"text-align:left"},"Tippe mindestens 2 Buchstaben, um Personen zu finden.") : null,
+        creators.length ? h("h2",{},"Beliebt auf shade") : null, ...creators.map(rowFor),
+        !friends.length && !found.length && !creators.length && q.length >= 2 ? h("p",{class:"note",style:"padding:30px 0"},"Keine Treffer. Versuch einen anderen Namen.") : null);
+    }
+    overlay.replaceChildren(h("div",{class:"ov"},
+      h("div",{class:"chathead"}, iconBtn("back","Zurück",closeOverlay), h("b",{style:"font-size:17px"},"Suchen")),
+      h("div",{style:"padding:10px max(16px,env(safe-area-inset-left,0px));overflow-y:auto;flex:1"}, h("div",{class:"searchwrap"}, ic("search"), inp), res)));
+    draw(); inp.focus();
+  };
+
+  // ---------- Profil ----------
+  saveAccount = function(){
+    if (!UID || !account) return true;
+    account.email = auth.currentUser ? auth.currentUser.email : account.email;
+    db.collection("users").doc(UID).update({name:account.name, bio:account.bio || "", photo:account.photo || null}).catch(e => toast(errText(e)));
+    const newU = account.username, oldU = lastUsername;
+    if (newU && oldU && newU !== oldU){
+      db.runTransaction(async t => {
+        const r = db.collection("usernames").doc(newU), s = await t.get(r);
+        if (s.exists && s.data().uid !== UID) throw {code:"taken"};
+        t.set(r, {uid:UID}); t.delete(db.collection("usernames").doc(oldU)); t.update(db.collection("users").doc(UID), {username:newU});
+      }).then(() => { lastUsername = newU; }).catch(e => { account.username = oldU; toast(errText(e)); refresh(); });
+    }
+    return true;
+  };
+  logout = async function(){ const u = UID, s = mySub; stopAll(); overlay.replaceChildren(); if (u && s) { try { await pushApi("/unsub", {sub:JSON.parse(s)}); await db.collection("push").doc(u).update({subs:FV.arrayRemove(s)}); } catch {} } mySub = null; auth.signOut(); };
+
+  // ---------- Anmelden ----------
+  async function submit(mode, err, photo){
+    const v = id => (document.getElementById(id)?.value || "").trim();
+    const email = v("a-email").toLowerCase(), pass = document.getElementById("a-pass").value;
+    const btn = document.querySelector(".auth .big");
+    const busy = on => { btn.disabled = on; btn.textContent = on ? "Einen Moment …" : (mode === "signup" ? "Weiter" : "Anmelden"); };
+    if (mode === "signup"){
+      const name = v("a-name"), user = v("a-user").toLowerCase().replace(/^@/,""), birth = v("a-birth");
+      if (!name) return err.textContent = "Bitte gib deinen Namen ein.";
+      if (!/^[a-z0-9._]{3,20}$/.test(user)) return err.textContent = "Benutzername: 3–20 Zeichen, nur a–z, 0–9, Punkt und Unterstrich.";
+      const bm = birth.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if (!bm) return err.textContent = "Bitte gib dein Geburtsdatum vollständig ein: Tag, Monat und Jahr.";
+      const bd = new Date(+bm[3], +bm[2]-1, +bm[1]);
+      if (bd.getDate() !== +bm[1] || bd.getMonth() !== +bm[2]-1 || +bm[3] < 1900 || bd > new Date()) return err.textContent = "Dieses Datum gibt es nicht. Bitte prüf es noch einmal.";
+      if (ageFrom(bd) < 13) return err.textContent = "shade ist erst ab 13 Jahren erlaubt.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err.textContent = "Bitte gib eine gültige E-Mail-Adresse ein.";
+      if (pass.length < 6) return err.textContent = "Das Passwort braucht mindestens 6 Zeichen.";
+      busy(true);
+      try {
+        const taken = await db.collection("usernames").doc(user).get();
+        if (taken.exists) throw {code:"taken"};
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        try {
+          await db.runTransaction(async t => {
+            const r = db.collection("usernames").doc(user), s = await t.get(r);
+            if (s.exists) throw {code:"taken"};
+            t.set(r, {uid:cred.user.uid});
+            t.set(db.collection("users").doc(cred.user.uid), {name, username:user, photo:photo || null, bio:"", birth, joined:Date.now(), friends:[]});
+          });
+        } catch(e){ await cred.user.delete().catch(()=>{}); throw e; }
+        unlock("start");
+        toast(`Willkommen bei shade, ${name}.`);
+      } catch(e){ err.textContent = errText(e); toast(errText(e)); busy(false); }
+    } else {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err.textContent = "Bitte gib eine gültige E-Mail-Adresse ein.";
+      if (!pass) return err.textContent = "Bitte gib dein Passwort ein.";
+      busy(true);
+      try { await auth.signInWithEmailAndPassword(email, pass); }
+      catch(e){ err.textContent = errText(e); busy(false); }
+    }
+  }
+
+  function start(){
+    authEl.replaceChildren(h("div",{class:"auth"}, h("div",{class:"inner"}, h("div",{class:"brand"}, logo(96), h("h1",{},"shade"), h("span",{class:"tag"},"Wird geladen …")))));
+    auth.onAuthStateChanged(user => {
+      stopAll(); initialized = false;
+      chats.length = 0; stories.length = 0; myStories.length = 0; myFriends = [];
+      Object.keys(people).forEach(k => { if (people[k].real) delete people[k]; });
+      if (!user){ UID = null; loggedIn = false; account = null; overlay.replaceChildren(); showAuth(store.get("shade-had-account") ? "login" : "signup"); return; }
+      UID = user.uid; store.set("shade-had-account", true);
+      unsubs.push(db.collection("users").doc(UID).onSnapshot(s => {
+        if (!s.exists) return;
+        const d = s.data(), first = !loggedIn;
+        account = {email:user.email, name:d.name, username:d.username, photo:d.photo || null, bio:d.bio || "", birth:d.birth, joined:d.joined || Date.now(), ntfy:d.ntfy || null};
+        if (!d.ntfy) ensureTopic(d);
+        lastUsername = d.username;
+        watchFriends(d.friends || []);
+        if (first){
+          loggedIn = true; authEl.replaceChildren(); watchChats(); watchCalls(); renderAll(); savePush(false); setTimeout(() => openFromUrl(location.href), 1500);
+          requestAnimationFrame(() => { pager.scrollLeft = 2 * pager.clientWidth; setTab(2); });
+          setTimeout(() => { initialized = true; }, 3000);
+        }
+        refresh();
+      }, e => toast(errText(e))));
+    });
+  }
+
+  // ---------- Anrufe (WebRTC, Verbindungsaufbau über Firestore) ----------
+  const ICE = {iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302","stun:stun2.l.google.com:19302"]}]};
+  const callEl = document.getElementById("call");
+  let call = null;
+  const fmtDur = ms => { const t = Math.floor(ms/1000); return Math.floor(t/60) + ":" + String(t%60).padStart(2,"0"); };
+
+  function ring(on, outgoing){
+    if (call && call.ringer){ clearInterval(call.ringer); call.ringer = null; }
+    if (!on || !call) return;
+    let ctx; try { ctx = call.actx || (call.actx = new (window.AudioContext || window.webkitAudioContext)()); } catch { return; }
+    const beep = () => { try {
+      const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = outgoing ? 425 : 660; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(outgoing ? .06 : .12, t + .03);
+      g.gain.setValueAtTime(outgoing ? .06 : .12, t + (outgoing ? 1 : .35)); g.gain.linearRampToValueAtTime(0, t + (outgoing ? 1.05 : .4));
+      o.start(t); o.stop(t + 1.1);
+      if (!outgoing){ const o2 = ctx.createOscillator(), g2 = ctx.createGain(); o2.frequency.value = 880; o2.connect(g2); g2.connect(ctx.destination);
+        g2.gain.setValueAtTime(0, t + .45); g2.gain.linearRampToValueAtTime(.12, t + .48); g2.gain.setValueAtTime(.12, t + .8); g2.gain.linearRampToValueAtTime(0, t + .85); o2.start(t + .4); o2.stop(t + .9); }
+    } catch {} };
+    beep(); call.ringer = setInterval(beep, outgoing ? 4000 : 2000);
+    if (!outgoing && navigator.vibrate) try { navigator.vibrate([400, 200, 400]); } catch {}
+  }
+
+  function renderCall(){
+    if (!call){ callEl.replaceChildren(); return; }
+    const c = call, live = c.state === "live";
+    const status = c.state === "incoming" ? (c.video ? "Videoanruf …" : "Anruf …")
+      : c.state === "out" ? (c.video ? "Videoanruf – klingelt …" : "Klingelt …")
+      : c.state === "connecting" ? "Verbinde …" : fmtDur(Date.now() - c.started);
+    const btn = (icon, label, fn, cls="") => h("span",{class:"lbl"}, h("button",{class:"cb "+cls,"aria-label":label,onclick:fn}, ic(icon,26)), label);
+    if (!c.remoteEl){ c.remoteEl = h("video",{class:"remote",autoplay:true,playsinline:true}); c.remoteEl.setAttribute("webkit-playsinline",""); }
+    if (!c.localEl){ c.localEl = h("video",{class:"local",autoplay:true,playsinline:true,muted:true}); c.localEl.muted = true; }
+    if (c.remote && c.remoteEl.srcObject !== c.remote){ c.remoteEl.srcObject = c.remote; c.remoteEl.play().catch(()=>{}); }
+    if (c.local && c.video && c.localEl.srcObject !== c.local){ c.localEl.srcObject = c.local; c.localEl.play().catch(()=>{}); }
+    const showRemote = c.video && c.remote;
+    c.remoteEl.style.display = showRemote ? "" : "none"; c.remoteEl.style.opacity = showRemote ? 1 : 0;
+    c.localEl.style.display = c.video && c.local && c.camOn ? "" : "none";
+    let ctl;
+    if (c.state === "incoming") ctl = [btn("hangup","Ablehnen",()=>declineCall(),"end"), btn(c.video ? "video" : "phone","Annehmen",()=>acceptCall(),"ok pulse")];
+    else ctl = [btn(c.muted ? "micoff" : "mic", c.muted ? "Stumm" : "Mikro", toggleMute, c.muted ? "on" : ""),
+      c.video ? btn(c.camOn ? "video" : "camoff","Kamera",toggleCam, c.camOn ? "" : "on") : null,
+      c.video ? btn("flip","Drehen",flipCam) : null,
+      btn("hangup","Auflegen",()=>endCall(true),"end")];
+    if (!c.root){
+      c.root = h("div",{class:"call"}); c.statusEl = h("small",{});
+      c.root.append(c.remoteEl, c.localEl, h("div",{class:"who"}, avatar(c.other, 112), h("b",{}, pname(c.other)), c.statusEl), h("div",{class:"ctl"}));
+      callEl.replaceChildren(c.root);
+    }
+    c.root.className = "call" + (live ? " live" : "") + (showRemote ? " vid" : "");
+    c.statusEl.textContent = status;
+    c.root.querySelector(".ctl").replaceChildren(...ctl.filter(Boolean));
+  }
+
+  function toggleMute(){ if (!call || !call.local) return; call.muted = !call.muted; call.local.getAudioTracks().forEach(t => t.enabled = !call.muted); renderCall(); }
+  function toggleCam(){ if (!call || !call.local) return; call.camOn = !call.camOn; call.local.getVideoTracks().forEach(t => t.enabled = call.camOn); renderCall(); }
+  async function flipCam(){
+    if (!call || !call.local || !call.pc) return;
+    call.facing = call.facing === "user" ? "environment" : "user";
+    try {
+      const ns = await navigator.mediaDevices.getUserMedia({video:{facingMode:call.facing}});
+      const nt = ns.getVideoTracks()[0], sender = call.pc.getSenders().find(s => s.track && s.track.kind === "video");
+      if (sender) await sender.replaceTrack(nt);
+      call.local.getVideoTracks().forEach(t => { t.stop(); call.local.removeTrack(t); }); call.local.addTrack(nt);
+      call.localEl.style.transform = call.facing === "user" ? "scaleX(-1)" : "none";
+      call.localEl.srcObject = null; renderCall();
+    } catch { toast("Kamera konnte nicht gewechselt werden."); }
+  }
+
+  async function getMedia(video){
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("nomedia");
+    try { return await LiveCam.av(video); } catch(e){ console.warn(e); }
+    return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}, video: video ? {facingMode:"user", width:{ideal:640}, height:{ideal:960}} : false});
+  }
+
+  function makePc(){
+    const c = call, pc = new RTCPeerConnection(ICE);
+    c.pc = pc; c.candQueue = []; c.outCands = []; c.ready = false;
+    c.local.getTracks().forEach(t => pc.addTrack(t, c.local));
+    pc.ontrack = e => { if (!call || call !== c) return; c.remote = e.streams[0] || new MediaStream([e.track]); renderCall(); };
+    pc.onicecandidate = e => { if (!e.candidate) return; const cand = e.candidate.toJSON(); if (c.ready) sendCand(c, cand); else c.outCands.push(cand); };
+    pc.onconnectionstatechange = () => {
+      if (call !== c) return;
+      const st = pc.connectionState;
+      if (st === "connected" && c.state !== "live"){ c.state = "live"; c.started = Date.now(); ring(false); c.tick = setInterval(renderCall, 1000); renderCall(); }
+      else if (st === "failed"){ toast("Verbindung fehlgeschlagen. Versucht es im WLAN noch einmal."); endCall(true); }
+      else if (st === "disconnected"){ clearTimeout(c.dropT); c.dropT = setTimeout(() => { if (call === c && pc.connectionState !== "connected"){ toast("Verbindung abgebrochen."); endCall(true); } }, 8000); }
+    };
+    return pc;
+  }
+  function sendCand(c, cand){ c.ref.collection("cands").add({by:UID, c:cand, at:Date.now()}).catch(e => console.warn(e)); }
+  function flushOut(c){ c.ready = true; c.outCands.splice(0).forEach(x => sendCand(c, x)); }
+  async function addCand(c, cand){ try { if (c.pc.remoteDescription) await c.pc.addIceCandidate(cand); else c.candQueue.push(cand); } catch(e){ console.warn(e); } }
+  async function flushIn(c){ for (const x of c.candQueue.splice(0)) try { await c.pc.addIceCandidate(x); } catch(e){ console.warn(e); } }
+  function listenCands(c){
+    c.unsubs.push(c.ref.collection("cands").onSnapshot(q => q.docChanges().forEach(ch => {
+      if (ch.type !== "added") return; const d = ch.doc.data(); if (d.by !== UID) addCand(c, d.c);
+    }), e => console.warn(e)));
+  }
+
+  startCall = async function(other, video){
+    if (call) return;
+    if (!myFriends.includes(other)) return toast("Du kannst nur Freunde anrufen.");
+    let local;
+    try { local = await getMedia(video); }
+    catch { return toast(video ? "Kein Zugriff auf Kamera/Mikrofon. Erlaube es in den Einstellungen." : "Kein Zugriff aufs Mikrofon. Erlaube es in den Einstellungen."); }
+    const ref = db.collection("calls").doc();
+    const c = call = {ref, other, video, local, state:"out", role:"out", unsubs:[], camOn:true, muted:false, facing:"user"};
+    renderCall(); ring(true, true);
+    try {
+      const pc = makePc();
+      const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+      await ref.set({from:UID, to:other, video:!!video, offer:{type:offer.type, sdp:offer.sdp}, status:"ringing", at:Date.now()});
+      notify([other], video ? "vcall" : "call");
+      flushOut(c); listenCands(c);
+      c.unsubs.push(ref.onSnapshot(async s => {
+        const d = s.data(); if (!d || call !== c) return;
+        if (d.answer && !c.answered){ c.answered = true; ring(false); c.state = "connecting"; renderCall();
+          try { await pc.setRemoteDescription(d.answer); await flushIn(c); } catch(e){ console.warn(e); } }
+        if (d.status === "declined"){ toast(pname(other) + " hat abgelehnt."); endCall(false); }
+        else if (d.status === "busy"){ toast(pname(other) + " telefoniert gerade."); endCall(false); }
+        else if (d.status === "ended"){ endCall(false); }
+      }, e => console.warn(e)));
+      c.noAnswer = setTimeout(() => { if (call === c && !c.answered){ toast(pname(other) + " geht nicht ran."); notify([other], "missed"); endCall(true, "missed"); } }, 45000);
+    } catch(e){ toast("Anruf nicht möglich: " + errText(e)); endCall(false); }
+  };
+
+  function incoming(ref, d){
+    const c = call = {ref, other:d.from, video:!!d.video, offer:d.offer, state:"incoming", role:"in", unsubs:[], camOn:true, muted:false, facing:"user"};
+    ensurePerson(d.from);
+    c.unsubs.push(ref.onSnapshot(s => { const x = s.data(); if (call === c && x && (x.status === "ended" || x.status === "missed") ){ if (c.state === "incoming") toast("Verpasster Anruf von " + pname(c.other)); endCall(false); } }, ()=>{}));
+    renderCall(); ring(true, false);
+  }
+  async function acceptCall(){
+    const c = call; if (!c || c.state !== "incoming") return;
+    ring(false); c.state = "connecting"; renderCall();
+    try { c.local = await getMedia(c.video); }
+    catch { toast("Kein Zugriff auf Kamera/Mikrofon."); return declineCall(); }
+    try {
+      const pc = makePc();
+      await pc.setRemoteDescription(c.offer);
+      const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
+      await c.ref.update({answer:{type:ans.type, sdp:ans.sdp}, status:"accepted"});
+      flushOut(c); listenCands(c); await flushIn(c);
+      renderCall();
+    } catch(e){ toast("Anruf nicht möglich: " + errText(e)); endCall(true); }
+  }
+  function declineCall(){ const c = call; if (!c) return; c.ref.update({status:"declined"}).catch(()=>{}); endCall(false); }
+
+  function endCall(notify, why){
+    const c = call; if (!c) return;
+    call = null;
+    if (c.ringer) clearInterval(c.ringer);
+    clearInterval(c.tick); clearTimeout(c.noAnswer); clearTimeout(c.dropT);
+    c.unsubs.forEach(f => { try { f(); } catch {} });
+    try { c.pc && c.pc.close(); } catch {}
+    [c.local].forEach(s => s && s.getTracks().forEach(t => t.stop()));
+    try { c.actx && c.actx.close(); } catch {}
+    if (notify) c.ref.update({status: why || "ended", endedAt:Date.now()}).catch(()=>{});
+    if (c.started) toast("Anruf beendet · " + fmtDur(Date.now() - c.started));
+    callEl.replaceChildren();
+  }
+
+  function watchCalls(){
+    unsubs.push(db.collection("calls").where("to", "==", UID).where("status", "==", "ringing").onSnapshot(q => {
+      q.docChanges().forEach(ch => {
+        if (ch.type !== "added") return;
+        const d = ch.doc.data();
+        if (!d || Date.now() - (d.at || 0) > 50000) return;
+        if (call){ if (call.ref.id !== ch.doc.id) ch.doc.ref.update({status:"busy"}).catch(()=>{}); return; }
+        incoming(ch.doc.ref, d);
+      });
+    }, e => console.warn(e)));
+  }
+
+
+  // ---------- Benachrichtigungen (Web Push) ----------
+  const PUSH_URL = "__WORKER__";
+  async function pushApi(path, body){
+    if (!PUSH_URL.startsWith("https://") || !auth.currentUser) return null;
+    const idToken = await auth.currentUser.getIdToken();
+    const r = await fetch(PUSH_URL + path, {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({idToken, ...body}), keepalive:true});
+    return r.ok ? r.json() : null;
+  }
+  const ntfyOf = {};
+  const NTFY_TEXT = {msg:t => t || "Neue Nachricht", shot:() => "hat dir einen Shot geschickt", share:() => "hat dir etwas geteilt", story:() => "hat eine neue Story gepostet",
+    call:() => "ruft dich an 📞 – tippe, um shade zu öffnen", vcall:() => "ruft dich per Video an 🎥 – tippe, um shade zu öffnen", missed:() => "Verpasster Anruf"};
+  function notify(to, kind, text){
+    pushApi("/send", {to, kind, text}).catch(e => console.warn(e));
+    const list = kind === "story" ? myFriends : (Array.isArray(to) ? to : [to]);
+    const base = location.origin + location.pathname;
+    for (const u of list){ const topic = ntfyOf[u]; if (!topic) continue;
+      fetch("https://ntfy.sh/", {method:"POST", body:JSON.stringify({topic, title:"shade · " + (account?.name || "Jemand"), message:(NTFY_TEXT[kind] || NTFY_TEXT.msg)(text).slice(0, 200),
+        click: base + (kind === "story" ? "#stories" : "#chat=" + UID), priority: kind.includes("call") ? 5 : 4, tags: kind.includes("call") ? ["telephone_receiver"] : ["speech_balloon"]})}).catch(e => console.warn(e)); }
+  }
+  function myTopic(){ let t = account && account.ntfy; return t; }
+  async function ensureTopic(d){
+    if (d.ntfy) return d.ntfy;
+    const t = "shade-" + Array.from(crypto.getRandomValues(new Uint8Array(12)), b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+    try { await db.collection("users").doc(UID).update({ntfy:t}); } catch(e){ console.warn(e); }
+    return t;
+  }
+  openNtfy = function(){
+    const t = myTopic();
+    const steps = h("div",{class:"empty",style:"text-align:left;line-height:1.55"},
+      h("b",{style:"color:var(--fg);display:block;margin-bottom:6px"},"So kommen Benachrichtigungen, auch wenn shade zu ist:"),
+      "1. Lade die kostenlose App ", h("b",{style:"color:var(--fg)"},"ntfy"), " aus dem App Store.", h("br"),
+      h("a",{href:"https://apps.apple.com/app/ntfy/id1625396347",target:"_blank",class:"sbtn",style:"margin:8px 0;display:inline-flex"}, ic("link"),"ntfy im App Store öffnen"), h("br"),
+      "2. Tippe hier auf ", h("b",{style:"color:var(--fg)"},"„Code kopieren“"), ".", h("br"),
+      "3. Öffne ntfy, tippe oben rechts auf ", h("b",{style:"color:var(--fg)"},"„+“"), ", füge den Code ein und tippe auf ", h("b",{style:"color:var(--fg)"},"„Subscribe“"), ".", h("br"),
+      "4. Erlaube in ntfy die Mitteilungen. Fertig!");
+    overlay.replaceChildren(h("div",{class:"ov dim",onclick:e=>{ if(e.target===e.currentTarget) closeOverlay(); }},
+      h("div",{class:"sheet"}, h("h2",{},"Benachrichtigungen", iconBtn("close","Schließen",closeOverlay)), steps,
+        h("div",{style:"margin:12px 0;padding:12px 14px;border-radius:14px;background:var(--surface2);font:700 16px ui-monospace,monospace;word-break:break-all;color:var(--fg)"}, t || "…"),
+        h("button",{class:"send",style:"width:100%",onclick:async()=>{ try { await navigator.clipboard.writeText(t); toast("Code kopiert – jetzt in ntfy einfügen"); store.set("shade-ntfy-done", true); } catch { toast(t); } }}, ic("check"),"Code kopieren"))));
+  };
+
+  const VAPID_PUBLIC = "BGrJZ9KMNyDqfPjxTktH7IXccgnTvT3scQTYVpUlvJEJXT6ueJJZ5IVKlgvfD9u4Kdpd6Sr_cxFRiSw_NhTYwos";
+  const pushOK = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const b64u = s => { const r = atob((s + "=".repeat((4 - s.length % 4) % 4)).replace(/-/g,"+").replace(/_/g,"/")); return Uint8Array.from(r, c => c.charCodeAt(0)); };
+  let mySub = null;
+  async function savePush(ask){
+    if (!pushOK()){
+      if (ask){ if (isApple && !isInstalled()){ toast("Leg shade zuerst auf den Home-Bildschirm und öffne es von dort."); openInstall(); } else toast("Dieses Gerät kann keine Benachrichtigungen."); }
+      return;
+    }
+    if (ask && Notification.permission !== "granted"){
+      const p = await Notification.requestPermission();
+      if (p !== "granted"){ toast("Benachrichtigungen sind aus. Du kannst sie in den iPhone-Einstellungen bei shade erlauben."); refresh(); return; }
+    }
+    if (Notification.permission !== "granted") return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (sub && sub.options && sub.options.applicationServerKey){
+        const k = new Uint8Array(sub.options.applicationServerKey), want = b64u(VAPID_PUBLIC);
+        if (k.length !== want.length || k.some((x, i) => x !== want[i])){ await sub.unsubscribe(); sub = null; }
+      }
+      if (!sub) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64u(VAPID_PUBLIC)});
+      mySub = JSON.stringify(sub.toJSON());
+      await db.collection("push").doc(UID).set({subs:FV.arrayUnion(mySub)}, {merge:true});
+      const ok = await pushApi("/sub", {sub:sub.toJSON()});
+      if (!ok) throw new Error("Server nicht erreichbar");
+      if (ask) toast("Benachrichtigungen sind an.");
+    } catch(e){ console.warn(e); if (ask) toast("Benachrichtigungen gingen nicht: " + errText(e)); }
+    refresh();
+  }
+  pushUI = () => {
+    if (!PUSH_URL.startsWith("https://")) return null;
+    const apple = isApple && !isInstalled();
+    if (!apple && (!pushOK() || Notification.permission !== "default")) return null;
+    if (store.get("shade-push-later")) return null;
+    return h("div",{class:"installbar",style:"cursor:pointer",onclick:e=>{ if (!e.target.closest(".x")) savePush(true); }},
+      h("span",{style:"width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--acc);color:var(--acc-ink)"}, ic("bell",20)),
+      h("span",{style:"flex:1;text-align:left"}, h("b",{},"Benachrichtigungen an"), h("small",{}, apple ? "Geht, wenn shade auf dem Home-Bildschirm ist" : "Damit du siehst, wenn dir jemand schreibt")),
+      h("button",{class:"x","aria-label":"Später",style:"padding:6px;color:var(--muted)",onclick:()=>{ store.set("shade-push-later", true); refresh(); }}, ic("close",16)));
+  };
+  pushRow = () => {
+    if (!PUSH_URL.startsWith("https://")) return null;
+    const on = pushOK() && Notification.permission === "granted", denied = pushOK() && Notification.permission === "denied";
+    return h("button",{class:"row",style:"width:100%",onclick:()=>{ if (denied) toast("Erlaube Benachrichtigungen in den iPhone-Einstellungen → Mitteilungen → shade."); else savePush(true).then(()=>openSettings()); }},
+      h("span",{class:"t"}, h("b",{},"Benachrichtigungen"), h("small",{}, h("span",{}, on ? "An – auch wenn shade zu ist" : denied ? "Aus – in den iPhone-Einstellungen erlauben" : "Aus – tippen zum Einschalten"))),
+      on ? h("span",{class:"pill dim"},"An") : h("span",{class:"pill"},"Einschalten"));
+  };
+  function openFromUrl(u){
+    const hsh = (u || "").split("#")[1] || ""; if (!hsh || !loggedIn) return;
+    const m = hsh.match(/^chat=(.+)$/);
+    if (m && myFriends.includes(m[1])){ goTab(0); chatWith(m[1]); openChat(m[1]); }
+    else if (hsh === "stories") goTab(1);
+    try { history.replaceState(null, "", location.pathname); } catch {}
+  }
+  if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", e => { if (e.data && e.data.type === "open") openFromUrl(e.data.url); });
+
+  deleteStory = async function(st){
+    if (st.id) await db.collection("stories").doc(st.id).delete();
+    const i = myStories.indexOf(st); if (i >= 0) myStories.splice(i, 1);
+  };
+  return {start, submit, seenStory: id => db.collection("stories").doc(id).update({viewedBy:FV.arrayUnion(UID)}).catch(()=>{})};
+})();
+
 // ================= Navigation =================
 const pager = document.getElementById("pager");
 const TABS = [["chat","Chats"],["users","Stories"],["camera","Kamera"],["play","Spotlight"],["user","Profil"]];
 document.getElementById("tabs").replaceChildren(...TABS.map(([i,l],k)=>h("button",{"data-i":k,"aria-label":l}, ic(i), l, k===0?h("span",{class:"badge",id:"badge",hidden:true}):null)));
 const tabBtns = [...document.querySelectorAll("#tabs button")];
 let curTab = 2;
-function setTab(i){ curTab=i; tabBtns.forEach((b,j)=>b.setAttribute("aria-current", i===j ? "true" : "false")); }
+function setTab(i){ if (i === 2){ if (camOn){ if (curTab !== 2){ LiveCam.pause(false); drawFx(); } } else if (store.get("shade-cam-ok") && loggedIn && camUserStarted) startCam(); } else if (curTab === 2 && camOn && !camRec) LiveCam.pause(true); curTab=i; tabBtns.forEach((b,j)=>b.setAttribute("aria-current", i===j ? "true" : "false")); }
 function goTab(i){ if (overlay.childElementCount) closeOverlay(); pager.scrollTo({left:i*pager.clientWidth,behavior:"smooth"}); setTab(i); }
 tabBtns.forEach(b=>b.addEventListener("click",()=>goTab(+b.dataset.i)));
 pager.addEventListener("scroll",()=>setTab(Math.round(pager.scrollLeft/pager.clientWidth)),{passive:true});
@@ -1342,7 +2381,7 @@ function renderAll(){ renderChats(); renderStories(); renderCam(); renderSpot();
 
 applyLogo();
 const savedTheme = store.get("pling-theme"); if (savedTheme === "light") document.documentElement.setAttribute("data-theme","light");
-if (!loggedIn) showAuth(); else renderAll();
+if (NET) { loggedIn = false; NET.start(); } else if (!loggedIn) showAuth(); else renderAll();
 requestAnimationFrame(()=>{ pager.scrollLeft = 2*pager.clientWidth; setTab(2); });
 setInterval(()=>{ if(!overlay.childElementCount && loggedIn) { renderChats(); renderStories(); } }, 60000);
 </script>
